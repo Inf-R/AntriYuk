@@ -1,0 +1,53 @@
+{
+  "gate": "RLS & Privilege Verification (Anon Key Only)",
+  "executedAt": "2026-11-08T16:58:08.433Z",
+  "usedClientKeyType": "anon",
+  "allPassed": true,
+  "steps": [
+    {
+      "step": 1,
+      "name": "Pemilik membuka antrean (open_queue) dan Pelanggan A mengambil nomor (take_ticket)",
+      "actor": "owner & customer_a",
+      "expected": "Sesi berstatus open dan tiket baru berstatus waiting berhasil dibuat",
+      "actual": "Sesi status=open, tiket nomor=1 status=waiting",
+      "errorCode": null,
+      "passed": true
+    },
+    {
+      "step": 2,
+      "name": "Pelanggan B mencoba membaca tiket A lewat from('tickets').select()",
+      "actor": "customer_b",
+      "expected": "Hasil kosong (0 baris dikembalikan karena difilter policy RLS)",
+      "actual": "Dikembalikan 0 baris",
+      "errorCode": null,
+      "passed": true
+    },
+    {
+      "step": 3,
+      "name": "Pelanggan B mencoba update status tiket A secara langsung di tabel tickets",
+      "actor": "customer_b",
+      "expected": "Ditolak oleh database (permission denied / RLS policy violation)",
+      "actual": "Ditolak: permission denied for table tickets",
+      "errorCode": "42501",
+      "passed": true
+    },
+    {
+      "step": 4,
+      "name": "Pelanggan A mencoba mengubah kolom role miliknya sendiri menjadi owner di profiles",
+      "actor": "customer_a",
+      "expected": "Ditolak oleh database (column-level privilege: hanya display_name yang diizinkan)",
+      "actual": "Ditolak: permission denied for table profiles",
+      "errorCode": "42501",
+      "passed": true
+    },
+    {
+      "step": 5,
+      "name": "Akun tanpa login (anon) mencoba memanggil RPC take_ticket",
+      "actor": "unauthenticated",
+      "expected": "Ditolak oleh database (permission denied for function take_ticket / UNAUTHENTICATED)",
+      "actual": "Ditolak: permission denied for function take_ticket",
+      "errorCode": "42501",
+      "passed": true
+    }
+  ]
+}

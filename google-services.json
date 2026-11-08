@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2780153763",
+    "project_id": "antriyuk-dev",
+    "storage_bucket": "antriyuk-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2780153763:android:2558b89d1a853de61ebc16",
+        "android_client_info": {
+          "package_name": "com.antriyuk.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ0hm3FiFIGYbwjSI-H-XOpwYvth79YtE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
