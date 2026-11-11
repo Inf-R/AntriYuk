@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "2780153763",
-    "project_id": "antriyuk-dev",
-    "storage_bucket": "antriyuk-dev.firebasestorage.app"
+    "project_number": "0000000000",
+    "project_id": "antriyuk-contoh",
+    "storage_bucket": "antriyuk-contoh.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:2780153763:android:2558b89d1a853de61ebc16",
+        "mobilesdk_app_id": "1:0000000000:android:0000000000000000000000",
         "android_client_info": {
           "package_name": "com.antriyuk.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAJ0hm3FiFIGYbwjSI-H-XOpwYvth79YtE"
+          "current_key": "GANTI_DENGAN_FIREBASE_ANDROID_API_KEY_ANDA"
         }
       ],
       "services": {
@@ -27,3 +27,4 @@
   ],
   "configuration_version": "1"
 }
+

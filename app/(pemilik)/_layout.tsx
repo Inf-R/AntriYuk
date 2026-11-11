@@ -16,6 +16,8 @@ export default function PemilikLayout() {
           <Pressable
             style={styles.profileChip}
             onPress={() => router.push('/(pemilik)/profil')}
+            accessibilityRole="button"
+            accessibilityLabel="Buka profil pemilik"
           >
             <Text style={styles.profileChipText}>Profil</Text>
           </Pressable>
@@ -36,12 +38,15 @@ export default function PemilikLayout() {
 
 const styles = StyleSheet.create({
   profileChip: {
+    minHeight: 44,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radii.pill,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileChipText: {
     ...theme.typography.bodyBold,

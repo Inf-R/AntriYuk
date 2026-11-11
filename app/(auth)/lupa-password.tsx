@@ -14,13 +14,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { forgotPasswordEmailSchema, resetPasswordSchema } from '@/lib/validation';
+import { useOnline } from '@/hooks/useOnline';
 import { useSession } from '@/hooks/useSession';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { theme } from '@/lib/theme';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function LupaPasswordScreen() {
   const { setIsResettingPassword } = useSession();
+  const { isOnline } = useOnline();
 
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [email, setEmail] = useState('');
@@ -134,8 +137,12 @@ export default function LupaPasswordScreen() {
     }
   }
 
+  const isActionDisabled = submitting || !isOnline;
+  const isResendDisabled = cooldown > 0 || submitting || !isOnline;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -183,13 +190,15 @@ export default function LupaPasswordScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.button,
-                  pressed && !submitting && styles.buttonPressed,
-                  submitting && styles.buttonDisabled,
+                  pressed && !isActionDisabled && styles.buttonPressed,
+                  isActionDisabled && styles.buttonDisabled,
                 ]}
                 onPress={() => {
                   void handleSendRecoveryCode();
                 }}
-                disabled={submitting}
+                disabled={isActionDisabled}
+                accessibilityRole="button"
+                accessibilityLabel="Kirim kode pemulihan ke email"
               >
                 {submitting ? (
                   <ActivityIndicator color={theme.colors.surface} />
@@ -230,13 +239,15 @@ export default function LupaPasswordScreen() {
                 <Pressable
                   style={({ pressed }) => [
                     styles.button,
-                    pressed && !submitting && styles.buttonPressed,
-                    submitting && styles.buttonDisabled,
+                    pressed && !isActionDisabled && styles.buttonPressed,
+                    isActionDisabled && styles.buttonDisabled,
                   ]}
                   onPress={() => {
                     void handleVerifyAndUpdatePassword();
                   }}
-                  disabled={submitting}
+                  disabled={isActionDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Simpan kata sandi baru"
                 >
                   {submitting ? (
                     <ActivityIndicator color={theme.colors.surface} />
@@ -248,18 +259,20 @@ export default function LupaPasswordScreen() {
                 <Pressable
                   style={({ pressed }) => [
                     styles.secondaryButton,
-                    (cooldown > 0 || submitting) && styles.secondaryButtonDisabled,
-                    pressed && cooldown === 0 && !submitting && styles.secondaryButtonPressed,
+                    isResendDisabled && styles.secondaryButtonDisabled,
+                    pressed && !isResendDisabled && styles.secondaryButtonPressed,
                   ]}
                   onPress={() => {
                     void handleSendRecoveryCode();
                   }}
-                  disabled={cooldown > 0 || submitting}
+                  disabled={isResendDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Kirim ulang kode pemulihan"
                 >
                   <Text
                     style={[
                       styles.secondaryButtonText,
-                      (cooldown > 0 || submitting) && styles.secondaryButtonTextDisabled,
+                      isResendDisabled && styles.secondaryButtonTextDisabled,
                     ]}
                   >
                     {cooldown > 0

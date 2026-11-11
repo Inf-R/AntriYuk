@@ -12,13 +12,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMyBusiness, useUpdateBusiness } from '@/hooks/useMyBusiness';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES, businessFormSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
 import type { BusinessCategory } from '@/types/database';
 
 export default function PengaturanUsahaScreen() {
-  const { data: business, isLoading, error: loadError } = useMyBusiness();
+  const { isOnline } = useOnline();
+  const {
+    data: business,
+    isLoading,
+    error: loadError,
+    refetch,
+  } = useMyBusiness();
   const updateBusinessMutation = useUpdateBusiness(business?.id);
 
   const [name, setName] = useState('');
@@ -82,20 +90,42 @@ export default function PengaturanUsahaScreen() {
 
   if (loadError || !business) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <Text style={styles.errorText}>
-          {loadError
-            ? getFriendlyErrorMessage(loadError)
-            : 'Data usaha tidak ditemukan.'}
-        </Text>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <OfflineBanner />
+        <View style={styles.centeredContainer}>
+          <View style={styles.card}>
+            <Text style={styles.errorTitle}>Gagal Memuat Pengaturan</Text>
+            <Text style={styles.errorText}>
+              {loadError
+                ? getFriendlyErrorMessage(loadError)
+                : 'Data usaha tidak ditemukan.'}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                styles.retryButtonMargin,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => {
+                void refetch();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang data usaha"
+            >
+              <Text style={styles.buttonText}>Coba Lagi</Text>
+            </Pressable>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
 
   const isSaving = updateBusinessMutation.isPending;
+  const isActionDisabled = isSaving || !isOnline;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -146,6 +176,9 @@ export default function PengaturanUsahaScreen() {
                       style={[styles.chip, selected && styles.chipActive]}
                       onPress={() => setCategory(item.value)}
                       disabled={isSaving}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Kategori ${item.label}`}
                     >
                       <Text
                         style={[
@@ -215,13 +248,15 @@ export default function PengaturanUsahaScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                pressed && !isSaving && styles.buttonPressed,
-                isSaving && styles.buttonDisabled,
+                pressed && !isActionDisabled && styles.buttonPressed,
+                isActionDisabled && styles.buttonDisabled,
               ]}
               onPress={() => {
                 void handleSave();
               }}
-              disabled={isSaving}
+              disabled={isActionDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Simpan perubahan pengaturan usaha"
             >
               {isSaving ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -291,9 +326,18 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
+  errorTitle: {
+    ...theme.typography.subheading,
+    color: theme.colors.status.cancelled.text,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'center',
+  },
   errorText: {
     ...theme.typography.body,
     color: theme.colors.status.cancelled.text,
+  },
+  retryButtonMargin: {
+    marginTop: theme.spacing.lg,
   },
   fieldGroup: {
     marginBottom: theme.spacing.md,
@@ -329,12 +373,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   chip: {
+    minHeight: 44,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radii.pill,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipActive: {
     backgroundColor: theme.colors.primary,

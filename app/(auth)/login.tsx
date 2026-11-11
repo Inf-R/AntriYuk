@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { supabase } from '@/lib/supabase';
 import { getFriendlyErrorMessage, isEmailNotConfirmedError } from '@/lib/errors';
 import { loginSchema } from '@/lib/validation';
@@ -19,6 +21,7 @@ import { theme } from '@/lib/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { isOnline } = useOnline();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,8 +62,11 @@ export default function LoginScreen() {
     }
   }
 
+  const isActionDisabled = submitting || !isOnline;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -90,6 +96,8 @@ export default function LoginScreen() {
                         params: { email: email.trim().toLowerCase() },
                       })
                     }
+                    accessibilityRole="button"
+                    accessibilityLabel="Masukkan kode verifikasi 6 angka"
                   >
                     <Text style={styles.verifyRedirectText}>
                       Masukkan Kode Verifikasi 6 Angka →
@@ -136,13 +144,15 @@ export default function LoginScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                pressed && !submitting && styles.buttonPressed,
-                submitting && styles.buttonDisabled,
+                pressed && !isActionDisabled && styles.buttonPressed,
+                isActionDisabled && styles.buttonDisabled,
               ]}
               onPress={() => {
                 void handleLogin();
               }}
-              disabled={submitting}
+              disabled={isActionDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Masuk ke akun AntriYuk"
             >
               {submitting ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -217,6 +227,8 @@ const styles = StyleSheet.create({
     color: theme.colors.status.cancelled.text,
   },
   verifyRedirectButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.xs,
   },

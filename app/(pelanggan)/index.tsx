@@ -12,8 +12,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useBusinessesList, type BusinessRow } from '@/hooks/useCustomerQueue';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
-import { BUSINESS_CATEGORIES } from '@/lib/validation';
+import {
+  BUSINESS_CATEGORIES,
+  businessSearchFilterSchema,
+} from '@/lib/validation';
 import { theme } from '@/lib/theme';
 import type { BusinessCategory } from '@/types/database';
 
@@ -32,14 +36,20 @@ export default function PelangganBerandaScreen() {
   const [selectedCategory, setSelectedCategory] =
     useState<FilterCategory>('semua');
 
-  // Debounce pencarian nama 300 ms
+  // Debounce pencarian nama 300 ms dengan validasi Zod
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchInput);
+      const parsed = businessSearchFilterSchema.safeParse({
+        search: searchInput,
+        category: selectedCategory,
+      });
+      setDebouncedSearch(
+        parsed.success ? parsed.data.search : searchInput.trim().slice(0, 80)
+      );
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, selectedCategory]);
 
   const {
     data: businesses,
@@ -66,6 +76,10 @@ export default function PelangganBerandaScreen() {
             params: { id: item.id },
           })
         }
+        accessibilityRole="button"
+        accessibilityLabel={`${item.name}, kategori ${categoryLabel}, status ${
+          item.is_queue_open ? 'Buka' : 'Tutup'
+        }`}
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleBlock}>
@@ -103,6 +117,7 @@ export default function PelangganBerandaScreen() {
 
   return (
     <View style={styles.container}>
+      <OfflineBanner />
       {/* BAR PENCARIAN & FILTER CHIPS */}
       <View style={styles.filterHeader}>
         <TextInput
@@ -113,6 +128,7 @@ export default function PelangganBerandaScreen() {
           placeholderTextColor={theme.colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
+          accessibilityLabel="Cari nama usaha"
         />
 
         <ScrollView
@@ -127,6 +143,9 @@ export default function PelangganBerandaScreen() {
                 key={item.value}
                 style={[styles.chip, active && styles.chipActive]}
                 onPress={() => setSelectedCategory(item.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Filter kategori ${item.label}`}
               >
                 <Text
                   style={[styles.chipText, active && styles.chipTextActive]}
@@ -160,6 +179,8 @@ export default function PelangganBerandaScreen() {
               onPress={() => {
                 void refetch();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang daftar usaha"
             >
               <Text style={styles.retryButtonText}>Coba Lagi</Text>
             </Pressable>
@@ -222,12 +243,15 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
   },
   chip: {
+    minHeight: 44,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radii.pill,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipActive: {
     backgroundColor: theme.colors.primary,

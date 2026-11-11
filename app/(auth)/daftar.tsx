@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { supabase } from '@/lib/supabase';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { registerSchema } from '@/lib/validation';
@@ -20,6 +22,7 @@ import type { ProfileRole } from '@/types/database';
 
 export default function DaftarScreen() {
   const router = useRouter();
+  const { isOnline } = useOnline();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -84,8 +87,11 @@ export default function DaftarScreen() {
     }
   }
 
+  const isActionDisabled = submitting || !isOnline;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -158,6 +164,9 @@ export default function DaftarScreen() {
                   ]}
                   onPress={() => setRole('customer')}
                   disabled={submitting}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: role === 'customer' }}
+                  accessibilityLabel="Daftar sebagai Pelanggan"
                 >
                   <Text
                     style={[
@@ -176,6 +185,9 @@ export default function DaftarScreen() {
                   ]}
                   onPress={() => setRole('owner')}
                   disabled={submitting}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: role === 'owner' }}
+                  accessibilityLabel="Daftar sebagai Pemilik Usaha"
                 >
                   <Text
                     style={[
@@ -198,8 +210,12 @@ export default function DaftarScreen() {
                   styles.checkbox,
                   acceptedPrivacy && styles.checkboxChecked,
                 ]}
+                hitSlop={10}
                 onPress={() => setAcceptedPrivacy((prev) => !prev)}
                 disabled={submitting}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedPrivacy }}
+                accessibilityLabel="Setujui Kebijakan Privasi AntriYuk"
               >
                 {acceptedPrivacy ? <Text style={styles.checkmark}>✓</Text> : null}
               </Pressable>
@@ -215,13 +231,15 @@ export default function DaftarScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                pressed && !submitting && styles.buttonPressed,
-                submitting && styles.buttonDisabled,
+                pressed && !isActionDisabled && styles.buttonPressed,
+                isActionDisabled && styles.buttonDisabled,
               ]}
               onPress={() => {
                 void handleRegister();
               }}
-              disabled={submitting}
+              disabled={isActionDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Daftar dan kirim kode verifikasi"
             >
               {submitting ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -327,6 +345,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   privacyRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: theme.spacing.xs,

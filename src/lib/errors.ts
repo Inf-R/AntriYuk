@@ -17,20 +17,22 @@ export type RpcErrorCode =
   | 'UNAUTHENTICATED';
 
 const ERROR_MESSAGES: Record<RpcErrorCode, string> = {
-  QUEUE_CLOSED: 'Antrean saat ini sedang ditutup oleh pemilik usaha.',
-  ALREADY_HAS_TICKET: 'Anda sudah memiliki nomor antrean aktif di usaha ini.',
-  RATE_LIMITED: 'Terlalu banyak permintaan dalam waktu singkat. Silakan tunggu sebentar.',
+  QUEUE_CLOSED: 'Antrean sedang tutup',
+  ALREADY_HAS_TICKET: 'Anda masih punya tiket aktif di usaha ini',
+  RATE_LIMITED: 'Terlalu banyak percobaan, coba lagi nanti',
   TOO_MANY_NO_SHOWS:
-    'Anda tidak dapat mengambil antrean karena riwayat tidak hadir melebihi batas hari ini.',
-  DEFER_LIMIT: 'Batas undur giliran untuk tiket ini sudah tercapai.',
-  NOTHING_BEHIND: 'Belum ada antrean di belakang Anda untuk mengundur giliran.',
-  CANNOT_CANCEL: 'Tiket antrean ini sudah tidak dapat dibatalkan.',
-  CANNOT_DEFER: 'Tiket antrean ini tidak dapat diundur saat ini.',
-  CANNOT_MARK_NO_SHOW: 'Tiket ini tidak dapat ditandai tidak hadir.',
-  CANNOT_FINISH: 'Tiket ini tidak dapat diselesaikan.',
-  NOT_OWNER: 'Aksi ini hanya dapat dilakukan oleh pemilik usaha terkait.',
+    'Anda sementara tidak bisa mengambil nomor karena beberapa kali tidak hadir',
+  DEFER_LIMIT:
+    'Batas undur giliran (maksimal 2 kali) untuk tiket ini sudah tercapai.',
+  NOTHING_BEHIND:
+    'Belum ada antrean di belakang Anda untuk mengundur giliran.',
+  CANNOT_CANCEL: 'Tiket Anda sudah berubah status. Muat ulang layar',
+  CANNOT_DEFER: 'Tiket Anda sudah berubah status. Muat ulang layar',
+  CANNOT_MARK_NO_SHOW: 'Tiket Anda sudah berubah status. Muat ulang layar',
+  CANNOT_FINISH: 'Tiket Anda sudah berubah status. Muat ulang layar',
+  NOT_OWNER: 'Data tidak ditemukan',
   ONLY_CUSTOMER: 'Aksi ini khusus untuk akun pelanggan.',
-  TICKET_NOT_FOUND: 'Data tiket antrean tidak ditemukan.',
+  TICKET_NOT_FOUND: 'Data tidak ditemukan',
   INVALID_OUTCOME: 'Status penyelesaian antrean tidak valid.',
   INVALID_TOKEN: 'Format token notifikasi perangkat tidak valid.',
   UNAUTHENTICATED: 'Sesi Anda telah berakhir. Silakan masuk kembali.',
@@ -50,6 +52,28 @@ function extractErrorDetails(error: unknown): { code: string; message: string } 
     return { code, message };
   }
   return { code: '', message: '' };
+}
+
+/**
+ * Mengecek apakah error disebabkan oleh kegagalan jaringan / tidak ada koneksi internet.
+ */
+export function isNetworkError(error: unknown): boolean {
+  const { code, message } = extractErrorDetails(error);
+  const lowerCode = code.toLowerCase();
+  const lowerMsg = message.toLowerCase();
+  const isAbortError =
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.name === 'TimeoutError');
+  return (
+    isAbortError ||
+    lowerCode === 'network_error' ||
+    lowerCode === 'network_timeout' ||
+    lowerMsg.includes('network request failed') ||
+    lowerMsg.includes('network request timed out') ||
+    lowerMsg.includes('failed to fetch') ||
+    lowerMsg.includes('aborted') ||
+    lowerMsg.includes('network')
+  );
 }
 
 /**
@@ -115,7 +139,7 @@ export function getFriendlyErrorMessage(error: unknown): string {
     lowerMsg.includes('for security purposes, you can only request this after') ||
     lowerMsg.includes('too many requests')
   ) {
-    return 'Terlalu banyak percobaan dalam waktu singkat. Silakan tunggu sekitar 60 detik sebelum mencoba lagi.';
+    return 'Terlalu banyak percobaan, coba lagi nanti';
   }
 
   if (
@@ -151,16 +175,16 @@ export function getFriendlyErrorMessage(error: unknown): string {
     return 'Akun Anda sudah memiliki usaha yang terdaftar.';
   }
 
+  if (lowerCode === 'pgrst116') {
+    return 'Data tidak ditemukan';
+  }
+
   // 3. Pemetaan error konfigurasi & jaringan
   if (lowerMsg.includes('missing_supabase_env')) {
     return 'Konfigurasi koneksi layanan belum lengkap. Pastikan variabel lingkungan Supabase sudah diatur.';
   }
 
-  if (
-    lowerMsg.includes('network request failed') ||
-    lowerMsg.includes('failed to fetch') ||
-    lowerMsg.includes('network')
-  ) {
+  if (isNetworkError(error)) {
     return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda lalu coba lagi.';
   }
 

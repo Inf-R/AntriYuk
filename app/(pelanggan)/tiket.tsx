@@ -27,13 +27,17 @@ export default function TiketPelangganScreen() {
     isRefetching,
     error,
     refetch,
+    isOnline,
+    isOfflineMode,
+    offlineBannerText,
   } = useMyTicket();
 
   const cancelMutation = useCancelTicket();
   const deferMutation = useDeferTicket();
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const isMutating = cancelMutation.isPending || deferMutation.isPending;
+  const isMutating =
+    cancelMutation.isPending || deferMutation.isPending || !isOnline || isOfflineMode;
 
   function handleConfirmCancel(ticketId: string): void {
     if (isMutating) {
@@ -99,6 +103,8 @@ export default function TiketPelangganScreen() {
             onPress={() => {
               void refetch();
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Coba muat ulang tiket antrean"
           >
             <Text style={styles.primaryButtonText}>Coba Lagi</Text>
           </Pressable>
@@ -123,6 +129,12 @@ export default function TiketPelangganScreen() {
           />
         }
       >
+        {offlineBannerText ? (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>{offlineBannerText}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.card}>
           <Text style={styles.emptyTitle}>Belum Ada Tiket Aktif</Text>
           <Text style={styles.emptySubtitle}>
@@ -135,6 +147,8 @@ export default function TiketPelangganScreen() {
               pressed && styles.primaryButtonPressed,
             ]}
             onPress={() => router.navigate('/(pelanggan)')}
+            accessibilityRole="button"
+            accessibilityLabel="Kembali ke Beranda untuk memilih usaha"
           >
             <Text style={styles.primaryButtonText}>Ke Beranda</Text>
           </Pressable>
@@ -164,6 +178,12 @@ export default function TiketPelangganScreen() {
         />
       }
     >
+      {offlineBannerText ? (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineBannerText}>{offlineBannerText}</Text>
+        </View>
+      ) : null}
+
       <View
         style={[
           styles.card,
@@ -279,6 +299,8 @@ export default function TiketPelangganScreen() {
                 void handleDefer(ticket.ticketId);
               }}
               disabled={isDeferLimitReached || isMutating}
+              accessibilityRole="button"
+              accessibilityLabel="Saya butuh waktu untuk mengundur giliran"
             >
               {deferMutation.isPending ? (
                 <ActivityIndicator color={theme.colors.primary} />
@@ -303,6 +325,8 @@ export default function TiketPelangganScreen() {
               ]}
               onPress={() => handleConfirmCancel(ticket.ticketId)}
               disabled={isMutating}
+              accessibilityRole="button"
+              accessibilityLabel="Batalkan tiket antrean"
             >
               {cancelMutation.isPending ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -334,14 +358,18 @@ export default function TiketPelangganScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
+                (!isOnline || isOfflineMode) && styles.buttonDisabled,
+                pressed && isOnline && !isOfflineMode && styles.primaryButtonPressed,
               ]}
+              disabled={!isOnline || isOfflineMode}
               onPress={() =>
                 router.push({
                   pathname: '/(pelanggan)/usaha/[id]',
                   params: { id: ticket.businessId },
                 })
               }
+              accessibilityRole="button"
+              accessibilityLabel="Ambil nomor antrean lagi"
             >
               <Text style={styles.primaryButtonText}>Ambil Nomor Lagi</Text>
             </Pressable>
@@ -361,6 +389,8 @@ export default function TiketPelangganScreen() {
                 pressed && styles.primaryButtonPressed,
               ]}
               onPress={() => router.navigate('/(pelanggan)')}
+              accessibilityRole="button"
+              accessibilityLabel="Kembali ke Beranda"
             >
               <Text style={styles.primaryButtonText}>Kembali ke Beranda</Text>
             </Pressable>
@@ -380,6 +410,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.lg,
+  },
+  offlineBanner: {
+    width: '100%',
+    backgroundColor: theme.colors.status.approaching.background,
+    borderWidth: 1,
+    borderColor: theme.colors.status.approaching.text,
+    borderRadius: theme.radii.card,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    alignItems: 'center',
+  },
+  offlineBannerText: {
+    ...theme.typography.bodyBold,
+    color: theme.colors.status.approaching.text,
+    textAlign: 'center',
   },
   scrollCenterContent: {
     flexGrow: 1,

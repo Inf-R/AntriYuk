@@ -16,6 +16,7 @@ import {
   shiftWibDateString,
   useOwnerSummary,
 } from '@/hooks/useOwnerSession';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { theme } from '@/lib/theme';
 
@@ -27,6 +28,7 @@ export default function RingkasanPemilikScreen() {
     data: business,
     isLoading: businessLoading,
     error: businessError,
+    refetch: refetchBusiness,
   } = useMyBusiness();
 
   const {
@@ -65,12 +67,31 @@ export default function RingkasanPemilikScreen() {
 
   if (businessError || !business) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <Text style={styles.errorText}>
-          {businessError
-            ? getFriendlyErrorMessage(businessError)
-            : 'Data usaha tidak ditemukan.'}
-        </Text>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <OfflineBanner />
+        <View style={styles.centeredContainer}>
+          <View style={styles.stateCard}>
+            <Text style={styles.errorTitle}>Gagal Memuat Usaha</Text>
+            <Text style={styles.errorText}>
+              {businessError
+                ? getFriendlyErrorMessage(businessError)
+                : 'Data usaha tidak ditemukan.'}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.retryButton,
+                pressed && styles.retryButtonPressed,
+              ]}
+              onPress={() => {
+                void refetchBusiness();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang data usaha"
+            >
+              <Text style={styles.retryButtonText}>Coba Lagi</Text>
+            </Pressable>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -84,6 +105,7 @@ export default function RingkasanPemilikScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -108,6 +130,8 @@ export default function RingkasanPemilikScreen() {
               ]}
               onPress={handlePrevDay}
               disabled={isBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Lihat ringkasan hari sebelumnya"
             >
               <Text style={styles.dateNavButtonText}>← Sebelumnya</Text>
             </Pressable>
@@ -129,6 +153,8 @@ export default function RingkasanPemilikScreen() {
               ]}
               onPress={handleNextDay}
               disabled={isBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Lihat ringkasan hari sesudahnya"
             >
               <Text style={styles.dateNavButtonText}>Sesudahnya →</Text>
             </Pressable>
@@ -146,6 +172,8 @@ export default function RingkasanPemilikScreen() {
                 }
               }}
               disabled={isBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Kembali ke ringkasan hari ini"
             >
               <Text style={styles.todayResetChipText}>Kembali ke Hari Ini</Text>
             </Pressable>
@@ -172,6 +200,8 @@ export default function RingkasanPemilikScreen() {
               onPress={() => {
                 void refetch();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang ringkasan harian"
             >
               <Text style={styles.retryButtonText}>Coba Lagi</Text>
             </Pressable>
@@ -317,10 +347,13 @@ const styles = StyleSheet.create({
   },
   todayResetChip: {
     marginTop: theme.spacing.md,
+    minHeight: 44,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radii.pill,
     backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   todayResetChipPressed: {
     backgroundColor: theme.colors.primaryDark,

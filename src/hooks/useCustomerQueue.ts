@@ -5,6 +5,10 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import {
+  clearCachedActiveTicket,
+  saveCachedActiveTicket,
+} from '@/db/sqlite';
 import { useSession } from '@/hooks/useSession';
 import { getTodayWibDateString } from '@/hooks/useOwnerSession';
 import type {
@@ -183,6 +187,7 @@ export interface MyTicketPositionData {
   ahead: number;
   estMinutes: number;
   queueStatus: QueueSessionStatus;
+  calledAt: string | null;
   updatedAt: string;
 }
 
@@ -203,7 +208,7 @@ export function useMyTicketPosition() {
       const { data: activeTicket, error: activeErr } = await supabase
         .from('tickets')
         .select(
-          'id, business_id, defer_count, status, created_at, businesses(name, grace_minutes)'
+          'id, business_id, defer_count, status, created_at, called_at, businesses(name, grace_minutes)'
         )
         .eq('customer_id', userId)
         .in('status', ['waiting', 'called'])
@@ -222,7 +227,7 @@ export function useMyTicketPosition() {
         const { data: latestTodayTicket, error: latestErr } = await supabase
           .from('tickets')
           .select(
-            'id, business_id, defer_count, status, created_at, businesses(name, grace_minutes), queue_sessions!inner(queue_date)'
+            'id, business_id, defer_count, status, created_at, called_at, businesses(name, grace_minutes), queue_sessions!inner(queue_date)'
           )
           .eq('customer_id', userId)
           .eq('queue_sessions.queue_date', todayWib)
@@ -244,6 +249,7 @@ export function useMyTicketPosition() {
       }
 
       if (!targetTicket) {
+        await clearCachedActiveTicket();
         return null;
       }
 
@@ -261,6 +267,7 @@ export function useMyTicketPosition() {
 
       const pos = posRows?.[0];
       if (!pos) {
+        await clearCachedActiveTicket();
         return null;
       }
 
@@ -273,11 +280,34 @@ export function useMyTicketPosition() {
         ? bizRelation[0]
         : bizRelation;
 
+      const businessName = bizInfo?.name ?? 'Usaha';
+      const graceMinutes = bizInfo?.grace_minutes ?? 5;
+      const fetchedAtIso = new Date().toISOString();
+
+      // 4. Tulis ulang cache SQLite jika tiket aktif (waiting / called),
+      //    atau hapus cache jika tiket berstatus done / cancelled / no_show / expired.
+      if (pos.ticket_status === 'waiting' || pos.ticket_status === 'called') {
+        await saveCachedActiveTicket({
+          ticket_id: targetTicket.id,
+          business_name: businessName,
+          ticket_number: pos.ticket_number,
+          ticket_status: pos.ticket_status,
+          current_number: pos.current_number,
+          ahead: pos.ahead,
+          est_minutes: pos.est_minutes,
+          grace_minutes: graceMinutes,
+          called_at: targetTicket.called_at,
+          updated_at: fetchedAtIso,
+        });
+      } else {
+        await clearCachedActiveTicket();
+      }
+
       return {
         ticketId: targetTicket.id,
         businessId: targetTicket.business_id,
-        businessName: bizInfo?.name ?? 'Usaha',
-        graceMinutes: bizInfo?.grace_minutes ?? 5,
+        businessName,
+        graceMinutes,
         deferCount: targetTicket.defer_count,
         ticketNumber: pos.ticket_number,
         ticketStatus: pos.ticket_status,
@@ -285,7 +315,8 @@ export function useMyTicketPosition() {
         ahead: pos.ahead,
         estMinutes: pos.est_minutes,
         queueStatus: pos.queue_status,
-        updatedAt: pos.updated_at,
+        calledAt: targetTicket.called_at,
+        updatedAt: fetchedAtIso,
       };
     },
   });
@@ -307,6 +338,7 @@ export function useTakeTicket() {
       return data;
     },
     onSuccess: async () => {
+      await clearCachedActiveTicket();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-ticket-position'] }),
         queryClient.invalidateQueries({ queryKey: ['business-detail'] }),
@@ -330,6 +362,7 @@ export function useCancelTicket() {
       }
     },
     onSuccess: async () => {
+      await clearCachedActiveTicket();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-ticket-position'] }),
         queryClient.invalidateQueries({ queryKey: ['business-detail'] }),

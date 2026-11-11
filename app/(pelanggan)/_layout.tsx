@@ -77,6 +77,8 @@ export default function PelangganLayout() {
             <Pressable
               style={styles.backButton}
               onPress={() => router.navigate('/(pelanggan)')}
+              accessibilityRole="button"
+              accessibilityLabel="Kembali ke daftar usaha"
             >
               <Text style={styles.backArrow}>←</Text>
             </Pressable>
@@ -93,6 +95,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   backButton: {
+    minHeight: 44,
+    minWidth: 44,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.xs,
     justifyContent: 'center',

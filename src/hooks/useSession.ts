@@ -7,7 +7,9 @@ import React, {
   useState,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { clearCachedActiveTicket } from '@/db/sqlite';
 import { supabase } from '@/lib/supabase';
+import { unregisterCurrentPushToken } from '@/hooks/usePushRegistration';
 import type { Database } from '@/types/database';
 
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -21,6 +23,7 @@ export interface SessionContextValue {
   setIsResettingPassword: (val: boolean) => void;
   refreshUserContext: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -129,6 +132,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     setIsLoading(true);
     try {
+      await clearCachedActiveTicket();
+      await unregisterCurrentPushToken();
       await supabase.auth.signOut();
       setSession(null);
       setProfile(null);
@@ -137,6 +142,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    await unregisterCurrentPushToken();
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) {
+      throw error;
+    }
+    await clearCachedActiveTicket();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Sesi user sudah terhapus di server oleh delete_my_account
+    }
+    setSession(null);
+    setProfile(null);
+    setOwnerBusinessId(null);
+    setIsResettingPassword(false);
   }, []);
 
   const value = useMemo<SessionContextValue>(
@@ -149,6 +172,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setIsResettingPassword,
       refreshUserContext,
       signOut,
+      deleteAccount,
     }),
     [
       session,
@@ -158,6 +182,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       isResettingPassword,
       refreshUserContext,
       signOut,
+      deleteAccount,
     ]
   );
 

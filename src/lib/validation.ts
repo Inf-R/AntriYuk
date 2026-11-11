@@ -122,4 +122,33 @@ export const businessFormSchema = z.object({
 
 export type BusinessFormInput = z.infer<typeof businessFormSchema>;
 
+export const deleteAccountConfirmSchema = z.object({
+  confirmText: z
+    .string()
+    .trim()
+    .refine((val) => val === 'HAPUS', {
+      message: 'Ketik kata HAPUS dengan huruf kapital untuk mengonfirmasi penghapusan akun.',
+    }),
+});
+
+export type DeleteAccountConfirmInput = z.infer<typeof deleteAccountConfirmSchema>;
+
+export const businessSearchFilterSchema = z.object({
+  search: z
+    .string()
+    .trim()
+    .max(80, 'Kata kunci pencarian maksimal 80 karakter.'),
+  category: z.enum([
+    'semua',
+    'klinik',
+    'barbershop',
+    'bengkel',
+    'warung_makan',
+    'lainnya',
+  ]),
+});
+
+export type BusinessSearchFilterInput = z.infer<typeof businessSearchFilterSchema>;
+
+
 

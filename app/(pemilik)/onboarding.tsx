@@ -13,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCreateBusiness } from '@/hooks/useMyBusiness';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES, businessFormSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
@@ -20,6 +22,7 @@ import type { BusinessCategory } from '@/types/database';
 
 export default function OnboardingPemilikScreen() {
   const router = useRouter();
+  const { isOnline } = useOnline();
   const createBusinessMutation = useCreateBusiness();
 
   const [name, setName] = useState('');
@@ -60,9 +63,11 @@ export default function OnboardingPemilikScreen() {
   }
 
   const isSubmitting = createBusinessMutation.isPending;
+  const isActionDisabled = isSubmitting || !isOnline;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -107,6 +112,9 @@ export default function OnboardingPemilikScreen() {
                       style={[styles.chip, selected && styles.chipActive]}
                       onPress={() => setCategory(item.value)}
                       disabled={isSubmitting}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Kategori ${item.label}`}
                     >
                       <Text
                         style={[
@@ -176,13 +184,15 @@ export default function OnboardingPemilikScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                pressed && !isSubmitting && styles.buttonPressed,
-                isSubmitting && styles.buttonDisabled,
+                pressed && !isActionDisabled && styles.buttonPressed,
+                isActionDisabled && styles.buttonDisabled,
               ]}
               onPress={() => {
                 void handleSubmit();
               }}
-              disabled={isSubmitting}
+              disabled={isActionDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Simpan data usaha dan buka dasbor"
             >
               {isSubmitting ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -268,12 +278,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   chip: {
+    minHeight: 44,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radii.pill,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipActive: {
     backgroundColor: theme.colors.primary,

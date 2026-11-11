@@ -165,6 +165,7 @@ export interface Database {
           done_at: string | null;
           cancelled_at: string | null;
           near_notified_at: string | null;
+          called_notified_at: string | null;
         };
         Insert: {
           id?: string;
@@ -180,6 +181,7 @@ export interface Database {
           done_at?: string | null;
           cancelled_at?: string | null;
           near_notified_at?: string | null;
+          called_notified_at?: string | null;
         };
         Update: {
           id?: string;
@@ -195,6 +197,7 @@ export interface Database {
           done_at?: string | null;
           cancelled_at?: string | null;
           near_notified_at?: string | null;
+          called_notified_at?: string | null;
         };
         Relationships: [
           {

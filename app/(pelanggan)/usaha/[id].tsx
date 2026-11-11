@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useBusinessDetail, useTakeTicket } from '@/hooks/useCustomerQueue';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES } from '@/lib/validation';
 import { theme } from '@/lib/theme';
@@ -17,6 +19,7 @@ import { theme } from '@/lib/theme';
 export default function DetailUsahaScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
+  const { isOnline } = useOnline();
 
   const { data, isLoading, isRefetching, error, refetch } =
     useBusinessDetail(id);
@@ -34,25 +37,30 @@ export default function DetailUsahaScreen() {
 
   if (error || !data) {
     return (
-      <View style={styles.centerBox}>
-        <View style={styles.card}>
-          <Text style={styles.errorTitle}>Gagal Memuat Detail Usaha</Text>
-          <Text style={styles.errorBody}>
-            {error
-              ? getFriendlyErrorMessage(error)
-              : 'Data usaha tidak ditemukan.'}
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => {
-              void refetch();
-            }}
-          >
-            <Text style={styles.buttonText}>Coba Lagi</Text>
-          </Pressable>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <View style={styles.centerBox}>
+          <View style={styles.card}>
+            <Text style={styles.errorTitle}>Gagal Memuat Detail Usaha</Text>
+            <Text style={styles.errorBody}>
+              {error
+                ? getFriendlyErrorMessage(error)
+                : 'Data usaha tidak ditemukan.'}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => {
+                void refetch();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang detail usaha"
+            >
+              <Text style={styles.buttonText}>Coba Lagi</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -62,7 +70,8 @@ export default function DetailUsahaScreen() {
     data;
   const isQueueOpen = sessionStatus === 'open' && business.is_queue_open;
   const isSubmitting = takeTicketMutation.isPending;
-  const canTakeTicket = isQueueOpen && !hasActiveTicketHere && !isSubmitting;
+  const canTakeTicket =
+    isOnline && isQueueOpen && !hasActiveTicketHere && !isSubmitting;
 
   const categoryLabel =
     BUSINESS_CATEGORIES.find((c) => c.value === business.category)?.label ??
@@ -83,19 +92,21 @@ export default function DetailUsahaScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={() => {
-            void refetch();
-          }}
-          colors={[theme.colors.primary]}
-        />
-      }
-    >
+    <View style={styles.container}>
+      <OfflineBanner />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => {
+              void refetch();
+            }}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
       <View style={styles.card}>
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
@@ -180,6 +191,8 @@ export default function DetailUsahaScreen() {
             void handleTakeTicket();
           }}
           disabled={!canTakeTicket}
+          accessibilityRole="button"
+          accessibilityLabel="Ambil nomor antrean"
         >
           {isSubmitting ? (
             <ActivityIndicator color={theme.colors.surface} />
@@ -195,12 +208,15 @@ export default function DetailUsahaScreen() {
               pressed && styles.secondaryButtonPressed,
             ]}
             onPress={() => router.navigate('/(pelanggan)/tiket')}
+            accessibilityRole="button"
+            accessibilityLabel="Lihat tiket saya"
           >
             <Text style={styles.secondaryButtonText}>Lihat Tiket Saya</Text>
           </Pressable>
         ) : null}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

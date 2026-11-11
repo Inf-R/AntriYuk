@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useMyBusiness } from '@/hooks/useMyBusiness';
+import { useOnline } from '@/hooks/useOnline';
 import {
   formatWibTimeOnly,
   useCallNext,
@@ -22,6 +23,7 @@ import {
   useOwnerQueue,
   useOwnerSession,
 } from '@/hooks/useOwnerSession';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES } from '@/lib/validation';
 import { theme } from '@/lib/theme';
@@ -35,6 +37,7 @@ function formatCountdown(remainingSeconds: number): string {
 
 export default function KelolaAntreanDashboardScreen() {
   const router = useRouter();
+  const { isOnline } = useOnline();
   const {
     data: business,
     isLoading: businessLoading,
@@ -105,12 +108,32 @@ export default function KelolaAntreanDashboardScreen() {
 
   if (businessError || !business) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <Text style={styles.errorText}>
-          {businessError
-            ? getFriendlyErrorMessage(businessError)
-            : 'Data usaha belum tersedia.'}
-        </Text>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <OfflineBanner />
+        <View style={styles.centeredContainer}>
+          <View style={styles.card}>
+            <Text style={styles.errorTitle}>Gagal Memuat Dasbor</Text>
+            <Text style={styles.errorText}>
+              {businessError
+                ? getFriendlyErrorMessage(businessError)
+                : 'Data usaha belum tersedia.'}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.openButton,
+                styles.retryButtonMargin,
+                pressed && styles.openButtonPressed,
+              ]}
+              onPress={() => {
+                void refetchBusiness();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang data usaha"
+            >
+              <Text style={styles.primaryButtonText}>Coba Lagi</Text>
+            </Pressable>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -126,6 +149,7 @@ export default function KelolaAntreanDashboardScreen() {
     business.category;
 
   const isMutating =
+    !isOnline ||
     openQueueMutation.isPending ||
     closeQueueMutation.isPending ||
     callNextMutation.isPending ||
@@ -240,6 +264,7 @@ export default function KelolaAntreanDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -282,19 +307,24 @@ export default function KelolaAntreanDashboardScreen() {
             </View>
           </View>
 
-          {sessionError ? (
+          {sessionError || queueError ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>
-                {getFriendlyErrorMessage(sessionError)}
+                {getFriendlyErrorMessage(sessionError ?? queueError)}
               </Text>
-            </View>
-          ) : null}
-
-          {queueError ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>
-                {getFriendlyErrorMessage(queueError)}
-              </Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.inlineRetryButton,
+                  pressed && styles.inlineRetryButtonPressed,
+                ]}
+                onPress={() => {
+                  void handleRefreshAll();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Coba muat ulang data antrean"
+              >
+                <Text style={styles.inlineRetryButtonText}>Coba Lagi</Text>
+              </Pressable>
             </View>
           ) : null}
 
@@ -335,6 +365,8 @@ export default function KelolaAntreanDashboardScreen() {
                 void handleOpenQueue();
               }}
               disabled={isMutating}
+              accessibilityRole="button"
+              accessibilityLabel="Buka antrean usaha hari ini"
             >
               {openQueueMutation.isPending ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -351,6 +383,8 @@ export default function KelolaAntreanDashboardScreen() {
               ]}
               onPress={handleConfirmCloseQueue}
               disabled={isMutating}
+              accessibilityRole="button"
+              accessibilityLabel="Tutup antrean usaha hari ini"
             >
               {closeQueueMutation.isPending ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -459,6 +493,8 @@ export default function KelolaAntreanDashboardScreen() {
                   void handleCallNext('done');
                 }}
                 disabled={isMutating}
+                accessibilityRole="button"
+                accessibilityLabel="Panggil nomor antrean berikutnya"
               >
                 {callNextMutation.isPending ? (
                   <ActivityIndicator color={theme.colors.surface} />
@@ -484,6 +520,8 @@ export default function KelolaAntreanDashboardScreen() {
                     void handleCallNext('done');
                   }}
                   disabled={isMutating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tandai selesai dan panggil berikutnya"
                 >
                   {callNextMutation.isPending ? (
                     <ActivityIndicator color={theme.colors.surface} />
@@ -505,6 +543,8 @@ export default function KelolaAntreanDashboardScreen() {
                     void handleCallNext('no_show');
                   }}
                   disabled={isMutating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tandai tidak hadir dan panggil berikutnya"
                 >
                   {callNextMutation.isPending ? (
                     <ActivityIndicator color={theme.colors.surface} />
@@ -531,6 +571,8 @@ export default function KelolaAntreanDashboardScreen() {
                     void handleFinishTicket(calledTicket.ticket_id);
                   }}
                   disabled={isMutating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tandai tiket selesai"
                 >
                   {finishTicketMutation.isPending ? (
                     <ActivityIndicator color={theme.colors.surface} />
@@ -550,6 +592,8 @@ export default function KelolaAntreanDashboardScreen() {
                     void handleMarkNoShow(calledTicket.ticket_id);
                   }}
                   disabled={isMutating}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tandai pelanggan tidak hadir"
                 >
                   {markNoShowMutation.isPending ? (
                     <ActivityIndicator color={theme.colors.surface} />
@@ -636,6 +680,8 @@ export default function KelolaAntreanDashboardScreen() {
               pressed && styles.secondaryNavButtonPressed,
             ]}
             onPress={() => router.push('/(pemilik)/ringkasan')}
+            accessibilityRole="button"
+            accessibilityLabel="Buka halaman Ringkasan Harian"
           >
             <Text style={styles.secondaryNavButtonText}>Ringkasan Harian</Text>
           </Pressable>
@@ -646,6 +692,8 @@ export default function KelolaAntreanDashboardScreen() {
               pressed && styles.secondaryNavButtonPressed,
             ]}
             onPress={() => router.push('/(pemilik)/pengaturan')}
+            accessibilityRole="button"
+            accessibilityLabel="Buka halaman Pengaturan Usaha"
           >
             <Text style={styles.secondaryNavButtonText}>Pengaturan Usaha</Text>
           </Pressable>
@@ -726,9 +774,36 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  errorTitle: {
+    ...theme.typography.subheading,
+    color: theme.colors.status.cancelled.text,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'center',
   },
   errorText: {
     ...theme.typography.body,
+    color: theme.colors.status.cancelled.text,
+  },
+  retryButtonMargin: {
+    marginTop: theme.spacing.md,
+  },
+  inlineRetryButton: {
+    minHeight: 44,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.status.cancelled.text,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  inlineRetryButtonPressed: {
+    opacity: 0.85,
+  },
+  inlineRetryButtonText: {
+    ...theme.typography.bodyBold,
     color: theme.colors.status.cancelled.text,
   },
   heroMetricBox: {

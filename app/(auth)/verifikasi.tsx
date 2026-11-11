@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { supabase } from '@/lib/supabase';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { verifyOtpSchema } from '@/lib/validation';
@@ -21,6 +23,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function VerifikasiScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
+  const { isOnline } = useOnline();
 
   const [email, setEmail] = useState(params.email ?? '');
   const [code, setCode] = useState('');
@@ -121,8 +124,12 @@ export default function VerifikasiScreen() {
     }
   }
 
+  const isVerifyDisabled = submitting || !isOnline;
+  const isResendDisabled = cooldown > 0 || resending || !isOnline;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -181,13 +188,15 @@ export default function VerifikasiScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                pressed && !submitting && styles.buttonPressed,
-                submitting && styles.buttonDisabled,
+                pressed && !isVerifyDisabled && styles.buttonPressed,
+                isVerifyDisabled && styles.buttonDisabled,
               ]}
               onPress={() => {
                 void handleVerifyOtp();
               }}
-              disabled={submitting}
+              disabled={isVerifyDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Verifikasi kode OTP akun"
             >
               {submitting ? (
                 <ActivityIndicator color={theme.colors.surface} />
@@ -199,18 +208,20 @@ export default function VerifikasiScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.secondaryButton,
-                (cooldown > 0 || resending) && styles.secondaryButtonDisabled,
-                pressed && cooldown === 0 && !resending && styles.secondaryButtonPressed,
+                isResendDisabled && styles.secondaryButtonDisabled,
+                pressed && !isResendDisabled && styles.secondaryButtonPressed,
               ]}
               onPress={() => {
                 void handleResendCode();
               }}
-              disabled={cooldown > 0 || resending}
+              disabled={isResendDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Kirim ulang kode verifikasi ke email"
             >
               <Text
                 style={[
                   styles.secondaryButtonText,
-                  (cooldown > 0 || resending) && styles.secondaryButtonTextDisabled,
+                  isResendDisabled && styles.secondaryButtonTextDisabled,
                 ]}
               >
                 {resending

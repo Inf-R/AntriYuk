@@ -74,12 +74,39 @@ const supabaseAnonKey = isSupabaseConfigured ? rawSupabaseAnonKey : 'placeholder
 
 const storageAdapter = Platform.OS === 'web' ? AsyncStorage : new LargeSecureStore();
 
+export const NETWORK_TIMEOUT_MS = 10_000;
+
+/**
+ * Wrapper fetch dengan batas waktu (timeout) 10 detik untuk mencegah permintaan jaringan menggantung.
+ */
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error('Network request timed out'));
+  }, NETWORK_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: storageAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+  },
+  global: {
+    fetch: fetchWithTimeout,
   },
 });
 

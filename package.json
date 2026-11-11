@@ -9,11 +9,18 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit && tsc -p scripts/tsconfig.json --noEmit",
     "seed:dev": "node scripts/seed-dev.ts",
-    "gate:rls": "node scripts/gate-rls.ts"
+    "gate:rls": "node scripts/gate-rls.ts",
+    "audit:security": "node scripts/audit-security.ts",
+    "sim:isi": "node scripts/simulasi-antrean.ts isi",
+    "sim:ramai": "node scripts/simulasi-antrean.ts ramai",
+    "sim:sebentar": "node scripts/simulasi-antrean.ts sebentar",
+    "sim:panggil": "node scripts/simulasi-antrean.ts panggil",
+    "sim:giliran": "node scripts/simulasi-antrean.ts giliran"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
+    "@sentry/react-native": "~8.28.0",
     "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",
     "@types/aes-js": "^3.1.4",

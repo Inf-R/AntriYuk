@@ -13,6 +13,8 @@ import {
   useTicketHistory,
   type TicketHistoryItem,
 } from '@/hooks/useCustomerQueue';
+import { useOnline } from '@/hooks/useOnline';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { theme } from '@/lib/theme';
 import type { TicketStatus } from '@/types/database';
@@ -63,6 +65,7 @@ function getTicketStatusStyle(status: TicketStatus): {
 }
 
 export default function RiwayatPelangganScreen() {
+  const { isOnline } = useOnline();
   const {
     data,
     isLoading,
@@ -124,23 +127,28 @@ export default function RiwayatPelangganScreen() {
 
   if (error) {
     return (
-      <View style={styles.centerBox}>
-        <View style={styles.stateCard}>
-          <Text style={styles.errorTitle}>Gagal Memuat Riwayat</Text>
-          <Text style={styles.errorBody}>
-            {getFriendlyErrorMessage(error)}
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => {
-              void refetch();
-            }}
-          >
-            <Text style={styles.buttonText}>Coba Lagi</Text>
-          </Pressable>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <View style={styles.centerBox}>
+          <View style={styles.stateCard}>
+            <Text style={styles.errorTitle}>Gagal Memuat Riwayat</Text>
+            <Text style={styles.errorBody}>
+              {getFriendlyErrorMessage(error)}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => {
+                void refetch();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Coba muat ulang riwayat antrean"
+            >
+              <Text style={styles.buttonText}>Coba Lagi</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -148,6 +156,7 @@ export default function RiwayatPelangganScreen() {
 
   return (
     <View style={styles.container}>
+      <OfflineBanner />
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -181,17 +190,27 @@ export default function RiwayatPelangganScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.loadMoreButton,
-                pressed && styles.loadMoreButtonPressed,
+                (!isOnline || isFetchingNextPage) && styles.loadMoreButtonDisabled,
+                pressed && isOnline && !isFetchingNextPage && styles.loadMoreButtonPressed,
               ]}
               onPress={() => {
                 void fetchNextPage();
               }}
-              disabled={isFetchingNextPage}
+              disabled={isFetchingNextPage || !isOnline}
+              accessibilityRole="button"
+              accessibilityLabel="Muat lebih banyak riwayat antrean"
             >
               {isFetchingNextPage ? (
                 <ActivityIndicator color={theme.colors.primary} />
               ) : (
-                <Text style={styles.loadMoreText}>Muat Lebih Banyak</Text>
+                <Text
+                  style={[
+                    styles.loadMoreText,
+                    !isOnline && styles.loadMoreTextDisabled,
+                  ]}
+                >
+                  Muat Lebih Banyak
+                </Text>
               )}
             </Pressable>
           ) : undefined
@@ -330,8 +349,14 @@ const styles = StyleSheet.create({
   loadMoreButtonPressed: {
     backgroundColor: theme.colors.background,
   },
+  loadMoreButtonDisabled: {
+    borderColor: theme.colors.border,
+  },
   loadMoreText: {
     ...theme.typography.bodyBold,
     color: theme.colors.primary,
+  },
+  loadMoreTextDisabled: {
+    color: theme.colors.textMuted,
   },
 });
