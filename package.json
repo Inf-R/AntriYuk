@@ -11,6 +11,7 @@
     "seed:dev": "node scripts/seed-dev.ts",
     "gate:rls": "node scripts/gate-rls.ts",
     "audit:security": "node scripts/audit-security.ts",
+    "test:full": "node scripts/tests/full-test.ts",
     "sim:isi": "node scripts/simulasi-antrean.ts isi",
     "sim:ramai": "node scripts/simulasi-antrean.ts ramai",
     "sim:sebentar": "node scripts/simulasi-antrean.ts sebentar",
@@ -18,6 +19,7 @@
     "sim:giliran": "node scripts/simulasi-antrean.ts giliran"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
     "@sentry/react-native": "~8.28.0",
