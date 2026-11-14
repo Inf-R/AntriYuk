@@ -1,17 +1,7 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Link, Stack, useRouter } from 'expo-router';
 import { useOnline } from '@/hooks/useOnline';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +9,32 @@ import { getFriendlyErrorMessage } from '@/lib/errors';
 import { registerSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
 import type { ProfileRole } from '@/types/database';
+import { Banner, Button, Card, Icon, IconName, Input, Screen, ScreenHeader } from '@/components/ui';
+
+interface RoleOption {
+  value: ProfileRole;
+  title: string;
+  description: string;
+  icon: IconName;
+  a11y: string;
+}
+
+const ROLE_OPTIONS: RoleOption[] = [
+  {
+    value: 'customer',
+    title: 'Pelanggan',
+    description: 'Ambil nomor antrean dan pantau giliran dari mana saja.',
+    icon: 'person-outline',
+    a11y: 'Daftar sebagai Pelanggan',
+  },
+  {
+    value: 'owner',
+    title: 'Pemilik Usaha',
+    description: 'Buka antrean untuk usaha Anda dan panggil pelanggan.',
+    icon: 'storefront-outline',
+    a11y: 'Daftar sebagai Pemilik Usaha',
+  },
+];
 
 export default function DaftarScreen() {
   const router = useRouter();
@@ -90,320 +106,302 @@ export default function DaftarScreen() {
   const isActionDisabled = submitting || !isOnline;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      edges={['top', 'left', 'right', 'bottom']}
+      header={
+        <ScreenHeader
+          title="Buat akun"
+          subtitle="Cukup beberapa langkah untuk mulai memakai AntriYuk."
+          onBack={router.canGoBack() ? () => router.back() : undefined}
+        />
+      }
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar style="dark" />
       <OfflineBanner />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.card}>
-            <Text style={styles.title}>Buat Akun Baru</Text>
-            <Text style={styles.subtitle}>
-              Isi data berikut untuk mulai menggunakan layanan antrean digital AntriYuk.
-            </Text>
 
-            {errorMessage ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
+      <Card style={styles.card}>
+        <View style={styles.fields}>
+          <Input
+            label="Nama tampilan"
+            iconLeft="person-outline"
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Contoh: Budi Santoso"
+            maxLength={50}
+            autoComplete="name"
+            textContentType="name"
+            editable={!submitting}
+          />
+          <Input
+            label="Email"
+            iconLeft="mail-outline"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="nama@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            editable={!submitting}
+          />
+          <Input
+            label="Kata sandi"
+            iconLeft="lock-closed-outline"
+            secure
+            helper="Minimal 8 karakter."
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Buat kata sandi"
+            autoCapitalize="none"
+            autoComplete="new-password"
+            textContentType="newPassword"
+            editable={!submitting}
+          />
+        </View>
+      </Card>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nama Tampilan</Text>
-              <TextInput
-                style={styles.input}
-                value={displayName}
-                onChangeText={setDisplayName}
-                placeholder="Contoh: Budi Santoso"
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={50}
-                editable={!submitting}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Alamat Email</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="nama@email.com"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Kata Sandi (Minimal 8 Karakter)</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Masukkan kata sandi"
-                placeholderTextColor={theme.colors.textMuted}
-                secureTextEntry
-                autoCapitalize="none"
-                editable={!submitting}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Daftar Sebagai</Text>
-              <View style={styles.roleRow}>
-                <Pressable
-                  style={[
-                    styles.rolePill,
-                    role === 'customer' && styles.rolePillActive,
-                  ]}
-                  onPress={() => setRole('customer')}
-                  disabled={submitting}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: role === 'customer' }}
-                  accessibilityLabel="Daftar sebagai Pelanggan"
-                >
-                  <Text
-                    style={[
-                      styles.rolePillText,
-                      role === 'customer' && styles.rolePillTextActive,
-                    ]}
-                  >
-                    Pelanggan
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={[
-                    styles.rolePill,
-                    role === 'owner' && styles.rolePillActive,
-                  ]}
-                  onPress={() => setRole('owner')}
-                  disabled={submitting}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: role === 'owner' }}
-                  accessibilityLabel="Daftar sebagai Pemilik Usaha"
-                >
-                  <Text
-                    style={[
-                      styles.rolePillText,
-                      role === 'owner' && styles.rolePillTextActive,
-                    ]}
-                  >
-                    Pemilik Usaha
-                  </Text>
-                </Pressable>
-              </View>
-              <Text style={styles.helperText}>
-                Peran akun bersifat tetap dan tidak dapat diubah setelah pendaftaran.
-              </Text>
-            </View>
-
-            <View style={styles.privacyRow}>
-              <Pressable
-                style={[
-                  styles.checkbox,
-                  acceptedPrivacy && styles.checkboxChecked,
-                ]}
-                hitSlop={10}
-                onPress={() => setAcceptedPrivacy((prev) => !prev)}
-                disabled={submitting}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: acceptedPrivacy }}
-                accessibilityLabel="Setujui Kebijakan Privasi AntriYuk"
-              >
-                {acceptedPrivacy ? <Text style={styles.checkmark}>✓</Text> : null}
-              </Pressable>
-              <Text style={styles.privacyText}>
-                Saya menyetujui{' '}
-                <Link href="/kebijakan-privasi" style={styles.linkText}>
-                  Kebijakan Privasi
-                </Link>{' '}
-                AntriYuk.
-              </Text>
-            </View>
-
+      <Text style={styles.sectionLabel} accessibilityRole="header">
+        Daftar sebagai
+      </Text>
+      <View style={styles.roleList} accessibilityRole="radiogroup">
+        {ROLE_OPTIONS.map((opt) => {
+          const selected = role === opt.value;
+          return (
             <Pressable
+              key={opt.value}
+              onPress={() => setRole(opt.value)}
+              disabled={submitting}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, checked: selected, disabled: submitting }}
+              accessibilityLabel={opt.a11y}
+              accessibilityHint={opt.description}
               style={({ pressed }) => [
-                styles.button,
-                pressed && !isActionDisabled && styles.buttonPressed,
-                isActionDisabled && styles.buttonDisabled,
+                styles.roleCard,
+                selected ? styles.roleCardSelected : null,
+                pressed && !selected ? styles.roleCardPressed : null,
               ]}
-              onPress={() => {
-                void handleRegister();
-              }}
-              disabled={isActionDisabled}
-              accessibilityRole="button"
-              accessibilityLabel="Daftar dan kirim kode verifikasi"
             >
-              {submitting ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.buttonText}>Daftar & Kirim Kode Verifikasi</Text>
-              )}
+              <View style={[styles.roleIcon, selected ? styles.roleIconSelected : null]}>
+                <Icon
+                  name={opt.icon}
+                  size={24}
+                  color={selected ? theme.colors.white : theme.colors.accent}
+                />
+              </View>
+              <View style={styles.roleTexts}>
+                <Text style={styles.roleTitle}>{opt.title}</Text>
+                <Text style={styles.roleDesc}>{opt.description}</Text>
+              </View>
+              <View style={[styles.radio, selected ? styles.radioSelected : null]}>
+                {selected ? <View style={styles.radioDot} /> : null}
+              </View>
             </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.helperRow}>
+        <Icon name="information-circle-outline" size={16} color={theme.colors.slateText} />
+        <Text style={styles.helperText}>
+          Peran akun bersifat tetap dan tidak dapat diubah setelah pendaftaran.
+        </Text>
+      </View>
 
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Sudah punya akun? </Text>
-              <Link href="/(auth)/login" style={styles.linkText}>
-                Masuk di sini
-              </Link>
-            </View>
+      <View style={styles.privacyRow}>
+        <Pressable
+          onPress={() => setAcceptedPrivacy((prev) => !prev)}
+          disabled={submitting}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: acceptedPrivacy, disabled: submitting }}
+          accessibilityLabel="Setujui Kebijakan Privasi AntriYuk"
+          style={styles.checkboxHit}
+        >
+          <View style={[styles.checkbox, acceptedPrivacy ? styles.checkboxChecked : null]}>
+            {acceptedPrivacy ? (
+              <Icon name="checkmark" size={16} color={theme.colors.white} />
+            ) : null}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </Pressable>
+        <Text style={styles.privacyText}>
+          Saya menyetujui{' '}
+          <Link href="/kebijakan-privasi" style={styles.linkText}>
+            Kebijakan Privasi
+          </Link>{' '}
+          AntriYuk.
+        </Text>
+      </View>
+
+      {errorMessage ? <Banner tone="danger" message={errorMessage} style={styles.banner} /> : null}
+
+      <Button
+        label="Daftar & kirim kode verifikasi"
+        size="l"
+        onPress={() => {
+          void handleRegister();
+        }}
+        loading={submitting}
+        disabled={isActionDisabled}
+        accessibilityLabel="Daftar dan kirim kode verifikasi"
+      />
+
+      <View style={styles.footerRow}>
+        <Text style={styles.footerText}>Sudah punya akun?</Text>
+        <Link href="/(auth)/login" asChild>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Masuk di sini"
+            style={({ pressed }) => [styles.inlineLink, pressed ? styles.linkPressed : null]}
+          >
+            <Text style={styles.linkText}>Masuk di sini</Text>
+          </Pressable>
+        </Link>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+  banner: {
     marginBottom: theme.spacing.lg,
   },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
+  card: {
+    marginBottom: theme.spacing.xl,
+  },
+  fields: {
+    gap: theme.spacing.lg,
+  },
+  sectionLabel: {
+    ...theme.typography.subtitle,
     marginBottom: theme.spacing.md,
   },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
+  roleList: {
+    gap: theme.spacing.md,
   },
-  fieldGroup: {
-    marginBottom: theme.spacing.md,
-  },
-  label: {
-    ...theme.typography.bodyBold,
-    marginBottom: theme.spacing.xs,
-  },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.body,
-  },
-  roleRow: {
+  roleCard: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  rolePill: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
+    gap: theme.spacing.md + 2,
+    padding: theme.spacing.lg,
+    minHeight: 88,
+    borderRadius: theme.radii.card,
+    backgroundColor: theme.colors.white,
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+    ...theme.shadows.soft,
   },
-  rolePillActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+  roleCardSelected: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.accent,
   },
-  rolePillText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textPrimary,
+  roleCardPressed: {
+    borderColor: theme.colors.primarySoft,
   },
-  rolePillTextActive: {
-    color: theme.colors.surface,
+  roleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radii.tile,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleIconSelected: {
+    backgroundColor: theme.colors.accent,
+  },
+  roleTexts: {
+    flex: 1,
+    gap: 2,
+  },
+  roleTitle: {
+    ...theme.typography.bodyLgStrong,
+    fontSize: 16,
+  },
+  roleDesc: {
+    ...theme.typography.caption,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: theme.radii.pill,
+    borderWidth: 2,
+    borderColor: theme.colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.white,
+  },
+  radioSelected: {
+    borderColor: theme.colors.accent,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.accent,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs + 2,
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xs,
   },
   helperText: {
     ...theme.typography.caption,
-    marginTop: theme.spacing.xs,
+    flex: 1,
   },
   privacyRow: {
-    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    marginLeft: -theme.spacing.md,
+  },
+  checkboxHit: {
+    width: theme.sizes.touchMin,
+    height: theme.sizes.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-    justifyContent: 'center',
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: theme.colors.muted,
+    backgroundColor: theme.colors.white,
     alignItems: 'center',
-    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: theme.colors.primary,
-  },
-  checkmark: {
-    color: theme.colors.surface,
-    fontWeight: '700',
-    fontSize: 14,
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
   },
   privacyText: {
+    ...theme.typography.bodyLg,
     flex: 1,
-    ...theme.typography.body,
+  },
+  inlineLink: {
+    minHeight: theme.sizes.touchMin,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xs,
+  },
+  linkPressed: {
+    opacity: 0.6,
   },
   linkText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
+    ...theme.typography.bodyLgStrong,
+    color: theme.colors.accent,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: theme.spacing.lg,
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
   },
   footerText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+    ...theme.typography.bodyLg,
+    color: theme.colors.slateText,
   },
 });

@@ -1,27 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useOnline } from '@/hooks/useOnline';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { supabase } from '@/lib/supabase';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { verifyOtpSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
+import { Banner, Button, Card, Input, OtpInput, Screen, ScreenHeader } from '@/components/ui';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function VerifikasiScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ email?: string }>();
   const { isOnline } = useOnline();
 
@@ -127,236 +119,93 @@ export default function VerifikasiScreen() {
   const isVerifyDisabled = submitting || !isOnline;
   const isResendDisabled = cooldown > 0 || resending || !isOnline;
 
+  const resendLabel = resending
+    ? 'Mengirim ulang...'
+    : cooldown > 0
+      ? `Kirim ulang kode dalam ${cooldown} dtk`
+      : 'Kirim ulang kode';
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      edges={['top', 'left', 'right', 'bottom']}
+      header={
+        <ScreenHeader
+          title="Cek email Anda"
+          subtitle="Masukkan kode 6 angka yang kami kirim untuk mengaktifkan akun."
+          onBack={router.canGoBack() ? () => router.back() : undefined}
+        />
+      }
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar style="dark" />
       <OfflineBanner />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.card}>
-            <Text style={styles.title}>Verifikasi Email Anda</Text>
-            <Text style={styles.subtitle}>
-              Masukkan kode 6 angka yang dikirimkan ke alamat email Anda.
-            </Text>
 
-            {infoMessage ? (
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>{infoMessage}</Text>
-              </View>
-            ) : null}
+      {infoMessage ? <Banner tone="success" message={infoMessage} style={styles.banner} /> : null}
+      {errorMessage ? <Banner tone="danger" message={errorMessage} style={styles.banner} /> : null}
 
-            {errorMessage ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
+      <Card>
+        <View style={styles.fields}>
+          <Input
+            label="Email"
+            iconLeft="mail-outline"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="nama@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!submitting}
+          />
+          <OtpInput
+            label="Kode verifikasi"
+            value={code}
+            onChangeText={(val) => setCode(val.replace(/\D/g, '').slice(0, 6))}
+            editable={!submitting}
+            accessibilityLabel="Kode verifikasi 6 angka"
+          />
+        </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Alamat Email</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="nama@email.com"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting}
-              />
-            </View>
+        <Button
+          label="Verifikasi akun"
+          size="l"
+          onPress={() => {
+            void handleVerifyOtp();
+          }}
+          loading={submitting}
+          disabled={isVerifyDisabled}
+          accessibilityLabel="Verifikasi kode OTP akun"
+          style={styles.primaryButton}
+        />
+      </Card>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Kode Verifikasi (6 Angka)</Text>
-              <TextInput
-                style={styles.otpInput}
-                value={code}
-                onChangeText={(val) => setCode(val.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="number-pad"
-                maxLength={6}
-                editable={!submitting}
-              />
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && !isVerifyDisabled && styles.buttonPressed,
-                isVerifyDisabled && styles.buttonDisabled,
-              ]}
-              onPress={() => {
-                void handleVerifyOtp();
-              }}
-              disabled={isVerifyDisabled}
-              accessibilityRole="button"
-              accessibilityLabel="Verifikasi kode OTP akun"
-            >
-              {submitting ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.buttonText}>Verifikasi Akun</Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                isResendDisabled && styles.secondaryButtonDisabled,
-                pressed && !isResendDisabled && styles.secondaryButtonPressed,
-              ]}
-              onPress={() => {
-                void handleResendCode();
-              }}
-              disabled={isResendDisabled}
-              accessibilityRole="button"
-              accessibilityLabel="Kirim ulang kode verifikasi ke email"
-            >
-              <Text
-                style={[
-                  styles.secondaryButtonText,
-                  isResendDisabled && styles.secondaryButtonTextDisabled,
-                ]}
-              >
-                {resending
-                  ? 'Mengirim Ulang...'
-                  : cooldown > 0
-                    ? `Kirim Ulang Kode (${cooldown} dtk)`
-                    : 'Kirim Ulang Kode'}
-              </Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <Button
+        label={resendLabel}
+        variant="ghost"
+        iconLeft={cooldown > 0 ? 'time-outline' : 'refresh'}
+        onPress={() => {
+          void handleResendCode();
+        }}
+        loading={resending}
+        disabled={isResendDisabled}
+        accessibilityLabel="Kirim ulang kode verifikasi ke email"
+        accessibilityHint={cooldown > 0 ? `Tersedia dalam ${cooldown} detik` : undefined}
+        style={styles.resend}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+  banner: {
     marginBottom: theme.spacing.lg,
   },
-  infoBox: {
-    backgroundColor: theme.colors.status.called.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+  fields: {
+    gap: theme.spacing.xl,
   },
-  infoText: {
-    ...theme.typography.body,
-    color: theme.colors.status.called.text,
+  primaryButton: {
+    marginTop: theme.spacing.xl,
   },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  fieldGroup: {
-    marginBottom: theme.spacing.md,
-  },
-  label: {
-    ...theme.typography.bodyBold,
-    marginBottom: theme.spacing.xs,
-  },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.body,
-  },
-  otpInput: {
-    minHeight: 56,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 8,
-    textAlign: 'center',
-    color: theme.colors.textPrimary,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  secondaryButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
+  resend: {
     marginTop: theme.spacing.md,
   },
-  secondaryButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  secondaryButtonDisabled: {
-    borderColor: theme.colors.border,
-  },
-  secondaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-  },
-  secondaryButtonTextDisabled: {
-    color: theme.colors.textMuted,
-  },
 });
-

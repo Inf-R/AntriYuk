@@ -1,16 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Stack, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { forgotPasswordEmailSchema, resetPasswordSchema } from '@/lib/validation';
@@ -18,10 +9,22 @@ import { useOnline } from '@/hooks/useOnline';
 import { useSession } from '@/hooks/useSession';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { theme } from '@/lib/theme';
+import {
+  Banner,
+  Button,
+  Card,
+  Input,
+  OtpInput,
+  Screen,
+  ScreenHeader,
+  StepIndicator,
+} from '@/components/ui';
 
 const RESEND_COOLDOWN_SECONDS = 60;
+const STEPS = ['Email', 'Kode', 'Sandi baru'];
 
 export default function LupaPasswordScreen() {
+  const router = useRouter();
   const { setIsResettingPassword } = useSession();
   const { isOnline } = useOnline();
 
@@ -140,273 +143,133 @@ export default function LupaPasswordScreen() {
   const isActionDisabled = submitting || !isOnline;
   const isResendDisabled = cooldown > 0 || submitting || !isOnline;
 
+  // Indikator langkah murni turunan tampilan dari state yang sudah ada.
+  const currentStep = step === 'request' ? 0 : code.length < 6 ? 1 : 2;
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      edges={['top', 'left', 'right', 'bottom']}
+      header={
+        <ScreenHeader
+          title="Atur ulang kata sandi"
+          subtitle={
+            step === 'request'
+              ? 'Masukkan email akun Anda untuk menerima kode pemulihan 6 angka.'
+              : 'Masukkan kode dari email, lalu buat kata sandi baru.'
+          }
+          onBack={router.canGoBack() ? () => router.back() : undefined}
+        />
+      }
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar style="dark" />
       <OfflineBanner />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.card}>
-            <Text style={styles.title}>Atur Ulang Kata Sandi</Text>
-            <Text style={styles.subtitle}>
-              {step === 'request'
-                ? 'Masukkan email akun Anda untuk menerima kode pemulihan 6 angka.'
-                : 'Masukkan kode 6 angka dari email beserta kata sandi baru Anda.'}
-            </Text>
 
-            {infoMessage ? (
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>{infoMessage}</Text>
-              </View>
-            ) : null}
+      <StepIndicator steps={STEPS} current={currentStep} style={styles.steps} />
 
-            {errorMessage ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
+      {infoMessage ? <Banner tone="success" message={infoMessage} style={styles.banner} /> : null}
+      {errorMessage ? <Banner tone="danger" message={errorMessage} style={styles.banner} /> : null}
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Alamat Email</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="nama@email.com"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting && step === 'request'}
+      <Card>
+        <View style={styles.fields}>
+          <Input
+            label="Email"
+            iconLeft="mail-outline"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="nama@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            editable={!submitting && step === 'request'}
+          />
+
+          {step === 'reset' ? (
+            <>
+              <OtpInput
+                label="Kode pemulihan"
+                value={code}
+                onChangeText={(val) => setCode(val.replace(/\D/g, '').slice(0, 6))}
+                editable={!submitting}
+                accessibilityLabel="Kode pemulihan 6 angka"
               />
-            </View>
+              <Input
+                label="Kata sandi baru"
+                iconLeft="lock-closed-outline"
+                secure
+                helper="Minimal 8 karakter."
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="Buat kata sandi baru"
+                autoCapitalize="none"
+                autoComplete="new-password"
+                textContentType="newPassword"
+                editable={!submitting}
+              />
+            </>
+          ) : null}
+        </View>
 
-            {step === 'request' ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.button,
-                  pressed && !isActionDisabled && styles.buttonPressed,
-                  isActionDisabled && styles.buttonDisabled,
-                ]}
-                onPress={() => {
-                  void handleSendRecoveryCode();
-                }}
-                disabled={isActionDisabled}
-                accessibilityRole="button"
-                accessibilityLabel="Kirim kode pemulihan ke email"
-              >
-                {submitting ? (
-                  <ActivityIndicator color={theme.colors.surface} />
-                ) : (
-                  <Text style={styles.buttonText}>Kirim Kode Pemulihan</Text>
-                )}
-              </Pressable>
-            ) : (
-              <>
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Kode Pemulihan (6 Angka)</Text>
-                  <TextInput
-                    style={styles.otpInput}
-                    value={code}
-                    onChangeText={(val) => setCode(val.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    placeholderTextColor={theme.colors.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    editable={!submitting}
-                  />
-                </View>
+        {step === 'request' ? (
+          <Button
+            label="Kirim kode pemulihan"
+            size="l"
+            onPress={() => {
+              void handleSendRecoveryCode();
+            }}
+            loading={submitting}
+            disabled={isActionDisabled}
+            accessibilityLabel="Kirim kode pemulihan ke email"
+            style={styles.primaryButton}
+          />
+        ) : (
+          <Button
+            label="Simpan kata sandi baru"
+            size="l"
+            onPress={() => {
+              void handleVerifyAndUpdatePassword();
+            }}
+            loading={submitting}
+            disabled={isActionDisabled}
+            accessibilityLabel="Simpan kata sandi baru"
+            style={styles.primaryButton}
+          />
+        )}
+      </Card>
 
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Kata Sandi Baru (Minimal 8 Karakter)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="Masukkan kata sandi baru"
-                    placeholderTextColor={theme.colors.textMuted}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    editable={!submitting}
-                  />
-                </View>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.button,
-                    pressed && !isActionDisabled && styles.buttonPressed,
-                    isActionDisabled && styles.buttonDisabled,
-                  ]}
-                  onPress={() => {
-                    void handleVerifyAndUpdatePassword();
-                  }}
-                  disabled={isActionDisabled}
-                  accessibilityRole="button"
-                  accessibilityLabel="Simpan kata sandi baru"
-                >
-                  {submitting ? (
-                    <ActivityIndicator color={theme.colors.surface} />
-                  ) : (
-                    <Text style={styles.buttonText}>Simpan Kata Sandi Baru</Text>
-                  )}
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    isResendDisabled && styles.secondaryButtonDisabled,
-                    pressed && !isResendDisabled && styles.secondaryButtonPressed,
-                  ]}
-                  onPress={() => {
-                    void handleSendRecoveryCode();
-                  }}
-                  disabled={isResendDisabled}
-                  accessibilityRole="button"
-                  accessibilityLabel="Kirim ulang kode pemulihan"
-                >
-                  <Text
-                    style={[
-                      styles.secondaryButtonText,
-                      isResendDisabled && styles.secondaryButtonTextDisabled,
-                    ]}
-                  >
-                    {cooldown > 0
-                      ? `Kirim Ulang Kode (${cooldown} dtk)`
-                      : 'Kirim Ulang Kode'}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      {step === 'reset' ? (
+        <Button
+          label={cooldown > 0 ? `Kirim ulang kode dalam ${cooldown} dtk` : 'Kirim ulang kode'}
+          variant="ghost"
+          iconLeft={cooldown > 0 ? 'time-outline' : 'refresh'}
+          onPress={() => {
+            void handleSendRecoveryCode();
+          }}
+          disabled={isResendDisabled}
+          accessibilityLabel="Kirim ulang kode pemulihan"
+          accessibilityHint={cooldown > 0 ? `Tersedia dalam ${cooldown} detik` : undefined}
+          style={styles.resend}
+        />
+      ) : null}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  steps: {
+    marginBottom: theme.spacing.xl,
   },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+  banner: {
     marginBottom: theme.spacing.lg,
   },
-  infoBox: {
-    backgroundColor: theme.colors.status.called.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+  fields: {
+    gap: theme.spacing.xl,
   },
-  infoText: {
-    ...theme.typography.body,
-    color: theme.colors.status.called.text,
+  primaryButton: {
+    marginTop: theme.spacing.xl,
   },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  fieldGroup: {
-    marginBottom: theme.spacing.md,
-  },
-  label: {
-    ...theme.typography.bodyBold,
-    marginBottom: theme.spacing.xs,
-  },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.body,
-  },
-  otpInput: {
-    minHeight: 56,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 8,
-    textAlign: 'center',
-    color: theme.colors.textPrimary,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  secondaryButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
+  resend: {
     marginTop: theme.spacing.md,
-  },
-  secondaryButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  secondaryButtonDisabled: {
-    borderColor: theme.colors.border,
-  },
-  secondaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-  },
-  secondaryButtonTextDisabled: {
-    color: theme.colors.textMuted,
   },
 });
