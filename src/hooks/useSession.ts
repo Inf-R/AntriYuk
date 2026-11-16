@@ -8,8 +8,8 @@ import React, {
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { clearCachedActiveTicket } from '@/db/sqlite';
+import { unregisterCurrentPushToken } from '@/lib/pushNotifications';
 import { supabase } from '@/lib/supabase';
-import { unregisterCurrentPushToken } from '@/hooks/usePushRegistration';
 import type { Database } from '@/types/database';
 
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];

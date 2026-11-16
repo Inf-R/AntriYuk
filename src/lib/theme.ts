@@ -113,6 +113,8 @@ export const radii = {
 export const sizes = {
   buttonMinHeight: 50,
   buttonLargeHeight: 56,
+  buttonXLHeight: 60,
+  tabBarHeight: 64,
   inputHeight: 52,
   /** Area sentuh minimum. */
   touchMin: 48,
