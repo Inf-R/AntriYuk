@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useMyBusiness } from '@/hooks/useMyBusiness';
 import {
   formatWibDateLabel,
@@ -19,6 +10,17 @@ import {
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { theme } from '@/lib/theme';
+import {
+  Banner,
+  Card,
+  Chip,
+  EmptyState,
+  Icon,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+  StatTile,
+} from '@/components/ui';
 
 export default function RingkasanPemilikScreen() {
   const todayWib = getTodayWibDateString();
@@ -58,449 +60,311 @@ export default function RingkasanPemilikScreen() {
 
   if (businessLoading) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Memuat data usaha...</Text>
-      </SafeAreaView>
+      <Screen header={<ScreenHeader title="Ringkasan Harian" />}>
+        <View style={styles.skeletonStack} accessibilityLabel="Memuat ringkasan harian">
+          <Skeleton width="100%" height={56} radius={theme.radii.pill} />
+          <View style={styles.gridRow}>
+            <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+            <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+          </View>
+          <View style={styles.gridRow}>
+            <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+            <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+          </View>
+        </View>
+      </Screen>
     );
   }
 
   if (businessError || !business) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen header={<ScreenHeader title="Ringkasan Harian" />}>
         <OfflineBanner />
-        <View style={styles.centeredContainer}>
-          <View style={styles.stateCard}>
-            <Text style={styles.errorTitle}>Gagal Memuat Usaha</Text>
-            <Text style={styles.errorText}>
-              {businessError
+        <Card>
+          <EmptyState
+            illustration="empty"
+            title="Gagal Memuat Usaha"
+            description={
+              businessError
                 ? getFriendlyErrorMessage(businessError)
-                : 'Data usaha tidak ditemukan.'}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed && styles.retryButtonPressed,
-              ]}
-              onPress={() => {
-                void refetchBusiness();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang data usaha"
-            >
-              <Text style={styles.retryButtonText}>Coba Lagi</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+                : 'Data usaha tidak ditemukan.'
+            }
+            actionLabel="Coba Lagi"
+            onAction={() => {
+              void refetchBusiness();
+            }}
+          />
+        </Card>
+      </Screen>
     );
   }
 
   const hasData = Boolean(summary && summary.total > 0);
-  const avgServiceText =
+  const avgServiceValue =
     summary?.avg_service_minutes !== null &&
     summary?.avg_service_minutes !== undefined
-      ? `${summary.avg_service_minutes.toFixed(1)} menit`
+      ? summary.avg_service_minutes.toFixed(1)
       : '-';
+  const avgServiceUnit =
+    summary?.avg_service_minutes !== null &&
+    summary?.avg_service_minutes !== undefined
+      ? 'menit'
+      : undefined;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      header={
+        <ScreenHeader
+          title="Ringkasan Harian"
+          eyebrow={business.name}
+        />
+      }
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={() => {
+            void refetch();
+          }}
+          colors={[theme.colors.primary]}
+        />
+      }
+    >
       <OfflineBanner />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => {
-              void refetch();
-            }}
-            colors={[theme.colors.primary]}
-          />
-        }
-      >
-        {/* NAVIGASI TANGGAL (HARI SEBELUMNYA / HARI SESUDAHNYA) */}
-        <View style={styles.dateCard}>
-          <Text style={styles.businessTitle}>{business.name}</Text>
-          <View style={styles.dateRow}>
+
+      <View style={styles.contentStack}>
+        {/* Pemilih Tanggal Berbentuk Pil dengan Panah */}
+        <View style={styles.dateSelectorWrap}>
+          <View style={styles.datePillBar}>
             <Pressable
-              style={({ pressed }) => [
-                styles.dateNavButton,
-                isBusy && styles.dateNavButtonDisabled,
-                pressed && !isBusy && styles.dateNavButtonPressed,
-              ]}
               onPress={handlePrevDay}
               disabled={isBusy}
               accessibilityRole="button"
               accessibilityLabel="Lihat ringkasan hari sebelumnya"
+              accessibilityState={{ disabled: isBusy }}
+              style={({ pressed }) => [
+                styles.arrowCircle,
+                pressed && !isBusy ? styles.arrowCirclePressed : null,
+                isBusy ? styles.arrowCircleDisabled : null,
+              ]}
             >
-              <Text style={styles.dateNavButtonText}>← Sebelumnya</Text>
+              <Icon
+                name="chevron-back"
+                size={20}
+                color={isBusy ? theme.colors.muted : theme.colors.ink}
+              />
             </Pressable>
 
-            <View style={styles.dateCenterBlock}>
-              <Text style={styles.dateLabelText}>
-                {formatWibDateLabel(selectedDate)}
-              </Text>
+            <View style={styles.dateCenter}>
+              <View style={styles.dateTitleRow}>
+                <Icon
+                  name="calendar-outline"
+                  size={16}
+                  color={theme.colors.accent}
+                />
+                <Text style={styles.dateLabelText} numberOfLines={1}>
+                  {formatWibDateLabel(selectedDate)}
+                </Text>
+              </View>
               <Text style={styles.dateSubText}>
                 {isToday ? 'Hari Ini (WIB)' : `${selectedDate} (WIB)`}
               </Text>
             </View>
 
             <Pressable
-              style={({ pressed }) => [
-                styles.dateNavButton,
-                isBusy && styles.dateNavButtonDisabled,
-                pressed && !isBusy && styles.dateNavButtonPressed,
-              ]}
               onPress={handleNextDay}
               disabled={isBusy}
               accessibilityRole="button"
               accessibilityLabel="Lihat ringkasan hari sesudahnya"
+              accessibilityState={{ disabled: isBusy }}
+              style={({ pressed }) => [
+                styles.arrowCircle,
+                pressed && !isBusy ? styles.arrowCirclePressed : null,
+                isBusy ? styles.arrowCircleDisabled : null,
+              ]}
             >
-              <Text style={styles.dateNavButtonText}>Sesudahnya →</Text>
+              <Icon
+                name="chevron-forward"
+                size={20}
+                color={isBusy ? theme.colors.muted : theme.colors.ink}
+              />
             </Pressable>
           </View>
 
           {!isToday ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.todayResetChip,
-                pressed && !isBusy && styles.todayResetChipPressed,
-              ]}
-              onPress={() => {
-                if (!isBusy) {
-                  setSelectedDate(todayWib);
-                }
-              }}
-              disabled={isBusy}
-              accessibilityRole="button"
-              accessibilityLabel="Kembali ke ringkasan hari ini"
-            >
-              <Text style={styles.todayResetChipText}>Kembali ke Hari Ini</Text>
-            </Pressable>
+            <View style={styles.resetChipRow}>
+              <Chip
+                label="Kembali ke Hari Ini"
+                icon="today-outline"
+                active
+                disabled={isBusy}
+                onPress={() => {
+                  if (!isBusy) {
+                    setSelectedDate(todayWib);
+                  }
+                }}
+                accessibilityLabel="Kembali ke ringkasan hari ini"
+              />
+            </View>
           ) : null}
         </View>
 
-        {/* ISI RINGKASAN HARIAN */}
+        {/* Isi Ringkasan Harian */}
         {summaryLoading ? (
-          <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={styles.loadingText}>Memuat ringkasan harian...</Text>
+          <View style={styles.skeletonStack} accessibilityLabel="Memuat data ringkasan">
+            <View style={styles.gridRow}>
+              <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+              <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+            </View>
+            <View style={styles.gridRow}>
+              <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+              <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+            </View>
+            <View style={styles.gridRow}>
+              <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+              <Skeleton width="48%" height={104} radius={theme.radii.tile} />
+            </View>
           </View>
         ) : summaryError ? (
-          <View style={styles.stateCard}>
-            <Text style={styles.errorTitle}>Gagal Memuat Ringkasan</Text>
-            <Text style={styles.errorText}>
-              {getFriendlyErrorMessage(summaryError)}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed && styles.retryButtonPressed,
-              ]}
-              onPress={() => {
-                void refetch();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang ringkasan harian"
-            >
-              <Text style={styles.retryButtonText}>Coba Lagi</Text>
-            </Pressable>
-          </View>
+          <Banner
+            tone="danger"
+            title="Gagal Memuat Ringkasan"
+            message={getFriendlyErrorMessage(summaryError)}
+            actionLabel="Coba Lagi"
+            onAction={() => {
+              void refetch();
+            }}
+          />
         ) : !hasData ? (
-          <View style={styles.stateCard}>
-            <Text style={styles.emptyTitle}>Belum ada data</Text>
-            <Text style={styles.emptySubtext}>
-              Belum terdapat tiket antrean yang tercatat pada tanggal ini.
-            </Text>
-          </View>
+          <Card>
+            <EmptyState
+              illustration="empty"
+              title="Belum ada data"
+              description="Belum terdapat tiket antrean yang tercatat pada tanggal ini."
+            />
+          </Card>
         ) : (
           <View style={styles.metricsGrid}>
-            {/* KARTU UTAMA: TOTAL & RATA-RATA MENIT LAYANAN */}
-            <View style={styles.metricsRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>Total Tiket</Text>
-                <Text style={styles.summaryBigValue}>{summary?.total ?? 0}</Text>
-              </View>
-
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>Rata-rata Layanan</Text>
-                <Text style={styles.summaryAvgValue}>{avgServiceText}</Text>
-              </View>
+            {/* Baris 1: Total Tiket & Selesai */}
+            <View style={styles.gridRow}>
+              <StatTile
+                label="Total Tiket"
+                value={summary?.total ?? 0}
+                variant="filledPrimary"
+                icon="ticket-outline"
+              />
+              <StatTile
+                label="Selesai"
+                value={summary?.done ?? 0}
+                variant="card"
+                icon="checkmark-circle"
+                iconTone="success"
+              />
             </View>
 
-            {/* KARTU RINCIAN STATUS: SELESAI & BATAL */}
-            <View style={styles.metricsRow}>
-              <View style={[styles.summaryCard, styles.cardDone]}>
-                <Text style={styles.summaryLabelDone}>Selesai</Text>
-                <Text style={styles.summaryValueDone}>
-                  {summary?.done ?? 0}
-                </Text>
-              </View>
-
-              <View style={[styles.summaryCard, styles.cardCancelled]}>
-                <Text style={styles.summaryLabelCancelled}>Batal</Text>
-                <Text style={styles.summaryValueCancelled}>
-                  {summary?.cancelled ?? 0}
-                </Text>
-              </View>
+            {/* Baris 2: Tidak Hadir & Dibatalkan */}
+            <View style={styles.gridRow}>
+              <StatTile
+                label="Tidak Hadir"
+                value={summary?.no_show ?? 0}
+                variant="card"
+                icon="person-remove-outline"
+                iconTone="warning"
+              />
+              <StatTile
+                label="Dibatalkan"
+                value={summary?.cancelled ?? 0}
+                variant="card"
+                icon="close-circle"
+                iconTone="danger"
+              />
             </View>
 
-            {/* KARTU RINCIAN STATUS: TIDAK HADIR & KEDALUWARSA */}
-            <View style={styles.metricsRow}>
-              <View style={[styles.summaryCard, styles.cardNoShow]}>
-                <Text style={styles.summaryLabelNoShow}>Tidak Hadir</Text>
-                <Text style={styles.summaryValueNoShow}>
-                  {summary?.no_show ?? 0}
-                </Text>
-              </View>
-
-              <View style={[styles.summaryCard, styles.cardExpired]}>
-                <Text style={styles.summaryLabelExpired}>Kedaluwarsa</Text>
-                <Text style={styles.summaryValueExpired}>
-                  {summary?.expired ?? 0}
-                </Text>
-              </View>
+            {/* Baris 3: Kedaluwarsa & Rata-rata layanan */}
+            <View style={styles.gridRow}>
+              <StatTile
+                label="Kedaluwarsa"
+                value={summary?.expired ?? 0}
+                variant="card"
+                icon="alert-circle-outline"
+                iconTone="muted"
+              />
+              <StatTile
+                label="Rata-rata layanan"
+                value={avgServiceValue}
+                unit={avgServiceUnit}
+                variant="filledAccent"
+                icon="timer-outline"
+              />
             </View>
           </View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centeredContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
+  skeletonStack: {
     gap: theme.spacing.md,
   },
-  loadingText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.md,
-    textAlign: 'center',
+  contentStack: {
+    gap: theme.spacing.lg,
   },
-  dateCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
+  dateSelectorWrap: {
+    gap: theme.spacing.sm,
   },
-  businessTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.primaryDark,
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-  },
-  dateRow: {
-    width: '100%',
+  datePillBar: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radii.pill,
+    padding: theme.spacing.xs + 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.sm,
+    ...theme.shadows.soft,
   },
-  dateNavButton: {
-    minHeight: 48,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
+  arrowCircle: {
+    width: theme.sizes.touchMin,
+    height: theme.sizes.touchMin,
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.canvas,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  dateNavButtonPressed: {
-    backgroundColor: theme.colors.border,
+  arrowCirclePressed: {
+    backgroundColor: theme.colors.primarySoft,
   },
-  dateNavButtonDisabled: {
-    opacity: 0.5,
+  arrowCircleDisabled: {
+    opacity: 0.45,
   },
-  dateNavButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-    fontSize: 13,
-  },
-  dateCenterBlock: {
+  dateCenter: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  dateTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs + 2,
   },
   dateLabelText: {
-    ...theme.typography.bodyBold,
+    ...theme.typography.bodyLgStrong,
+    color: theme.colors.ink,
     textAlign: 'center',
   },
   dateSubText: {
     ...theme.typography.caption,
-    marginTop: 2,
     textAlign: 'center',
   },
-  todayResetChip: {
-    marginTop: theme.spacing.md,
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
+  resetChipRow: {
     alignItems: 'center',
-  },
-  todayResetChipPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  todayResetChipText: {
-    ...theme.typography.caption,
-    color: theme.colors.surface,
-    fontWeight: '600',
-  },
-  stateCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: theme.spacing.lg,
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  retryButtonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  retryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
   },
   metricsGrid: {
     gap: theme.spacing.md,
   },
-  metricsRow: {
+  gridRow: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 110,
-  },
-  summaryLabel: {
-    ...theme.typography.caption,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  summaryBigValue: {
-    ...theme.typography.heading,
-    fontSize: 32,
-    lineHeight: 38,
-  },
-  summaryAvgValue: {
-    ...theme.typography.heading,
-    fontSize: 22,
-    lineHeight: 28,
-    color: theme.colors.primaryDark,
-    textAlign: 'center',
-  },
-  cardDone: {
-    backgroundColor: theme.colors.status.called.background,
-    borderColor: theme.colors.status.called.text,
-  },
-  summaryLabelDone: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.called.text,
-    marginBottom: theme.spacing.xs,
-  },
-  summaryValueDone: {
-    ...theme.typography.heading,
-    fontSize: 30,
-    lineHeight: 36,
-    color: theme.colors.status.called.text,
-  },
-  cardCancelled: {
-    backgroundColor: theme.colors.status.waiting.background,
-    borderColor: theme.colors.border,
-  },
-  summaryLabelCancelled: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.waiting.text,
-    marginBottom: theme.spacing.xs,
-  },
-  summaryValueCancelled: {
-    ...theme.typography.heading,
-    fontSize: 30,
-    lineHeight: 36,
-    color: theme.colors.status.waiting.text,
-  },
-  cardNoShow: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderColor: theme.colors.status.cancelled.text,
-  },
-  summaryLabelNoShow: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-  },
-  summaryValueNoShow: {
-    ...theme.typography.heading,
-    fontSize: 30,
-    lineHeight: 36,
-    color: theme.colors.status.cancelled.text,
-  },
-  cardExpired: {
-    backgroundColor: theme.colors.status.approaching.background,
-    borderColor: theme.colors.status.approaching.text,
-  },
-  summaryLabelExpired: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.approaching.text,
-    marginBottom: theme.spacing.xs,
-  },
-  summaryValueExpired: {
-    ...theme.typography.heading,
-    fontSize: 30,
-    lineHeight: 36,
-    color: theme.colors.status.approaching.text,
   },
 });

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useBusinessesList, type BusinessRow } from '@/hooks/useCustomerQueue';
+import { useSession } from '@/hooks/useSession';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import {
@@ -20,6 +20,18 @@ import {
 } from '@/lib/validation';
 import { theme } from '@/lib/theme';
 import type { BusinessCategory } from '@/types/database';
+import {
+  Banner,
+  Card,
+  CategoryTile,
+  Chip,
+  EmptyState,
+  Icon,
+  Screen,
+  SectionTitle,
+  Skeleton,
+  StatusPill,
+} from '@/components/ui';
 
 type FilterCategory = 'semua' | BusinessCategory;
 
@@ -30,11 +42,13 @@ const FILTER_OPTIONS: readonly { value: FilterCategory; label: string }[] = [
 
 export default function PelangganBerandaScreen() {
   const router = useRouter();
+  const { profile } = useSession();
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] =
     useState<FilterCategory>('semua');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Debounce pencarian nama 300 ms dengan validasi Zod
   useEffect(() => {
@@ -62,136 +76,201 @@ export default function PelangganBerandaScreen() {
     category: selectedCategory,
   });
 
+  const displayName = profile?.display_name?.trim() || 'Pelanggan';
+
   function renderBusinessCard({ item }: { item: BusinessRow }) {
     const categoryLabel =
       BUSINESS_CATEGORIES.find((c) => c.value === item.category)?.label ??
       item.category;
+    const addressText =
+      item.address && item.address.trim().length > 0
+        ? item.address
+        : 'Alamat belum dicantumkan';
 
     return (
-      <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      <Card
+        padding="md"
         onPress={() =>
           router.push({
             pathname: '/(pelanggan)/usaha/[id]',
             params: { id: item.id },
           })
         }
-        accessibilityRole="button"
         accessibilityLabel={`${item.name}, kategori ${categoryLabel}, status ${
           item.is_queue_open ? 'Buka' : 'Tutup'
         }`}
+        style={!item.is_queue_open ? styles.cardClosed : undefined}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleBlock}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardCategory}>{categoryLabel}</Text>
-          </View>
+        <View style={styles.cardRow}>
+          <CategoryTile category={item.category} />
 
-          <View
-            style={[
-              styles.statusBadge,
-              item.is_queue_open ? styles.statusOpen : styles.statusClosed,
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusText,
-                item.is_queue_open
-                  ? styles.statusOpenText
-                  : styles.statusClosedText,
-              ]}
-            >
-              {item.is_queue_open ? 'Buka' : 'Tutup'}
+          <View style={styles.cardCenter}>
+            <View style={styles.titlePillRow}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <StatusPill
+                status={item.is_queue_open ? 'open' : 'closed'}
+                size="sm"
+              />
+            </View>
+
+            <Text style={styles.cardCategory} numberOfLines={1}>
+              {categoryLabel}
             </Text>
-          </View>
-        </View>
 
-        <Text style={styles.cardAddress} numberOfLines={2}>
-          {item.address && item.address.trim().length > 0
-            ? item.address
-            : 'Alamat belum dicantumkan'}
-        </Text>
-      </Pressable>
+            <View style={styles.addressRow}>
+              <Icon
+                name="location-outline"
+                size={14}
+                color={theme.colors.slateText}
+              />
+              <Text style={styles.cardAddress} numberOfLines={1}>
+                {addressText}
+              </Text>
+            </View>
+          </View>
+
+          <Icon
+            name="chevron-forward"
+            size={20}
+            color={theme.colors.muted}
+          />
+        </View>
+      </Card>
     );
   }
 
-  return (
-    <View style={styles.container}>
+  const listHeader = (
+    <View style={styles.headerBlock}>
       <OfflineBanner />
-      {/* BAR PENCARIAN & FILTER CHIPS */}
-      <View style={styles.filterHeader}>
+
+      {/* Sapaan */}
+      <View style={styles.greetingBox}>
+        <Text style={styles.greetingTitle} accessibilityRole="header">
+          Halo, {displayName}
+        </Text>
+        <Text style={styles.greetingSubtitle}>
+          Mau antre di mana hari ini?
+        </Text>
+      </View>
+
+      {/* Kolom Cari Putih */}
+      <View
+        style={[
+          styles.searchBox,
+          searchFocused ? styles.searchBoxFocused : null,
+        ]}
+      >
+        <Icon
+          name="search"
+          size={20}
+          color={searchFocused ? theme.colors.accent : theme.colors.muted}
+        />
         <TextInput
           style={styles.searchInput}
           value={searchInput}
           onChangeText={setSearchInput}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
           placeholder="Cari nama usaha..."
-          placeholderTextColor={theme.colors.textMuted}
+          placeholderTextColor={theme.colors.muted}
+          selectionColor={theme.colors.accent}
+          cursorColor={theme.colors.accent}
           autoCapitalize="none"
           autoCorrect={false}
           accessibilityLabel="Cari nama usaha"
         />
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsContainer}
-        >
-          {FILTER_OPTIONS.map((item) => {
-            const active = selectedCategory === item.value;
-            return (
-              <Pressable
-                key={item.value}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => setSelectedCategory(item.value)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`Filter kategori ${item.label}`}
-              >
-                <Text
-                  style={[styles.chipText, active && styles.chipTextActive]}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {searchInput.length > 0 ? (
+          <Pressable
+            onPress={() => setSearchInput('')}
+            accessibilityRole="button"
+            accessibilityLabel="Bersihkan kata kunci pencarian"
+            hitSlop={8}
+            style={styles.clearBtn}
+          >
+            <Icon name="close-circle" size={18} color={theme.colors.muted} />
+          </Pressable>
+        ) : null}
       </View>
 
-      {/* ISI DAFTAR USAHA */}
+      {/* Chips Kategori Berikon */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsScroll}
+      >
+        {FILTER_OPTIONS.map((item) => {
+          const active = selectedCategory === item.value;
+          return (
+            <Chip
+              key={item.value}
+              label={item.label}
+              category={item.value}
+              active={active}
+              onPress={() => setSelectedCategory(item.value)}
+              accessibilityLabel={`Filter kategori ${item.label}`}
+            />
+          );
+        })}
+      </ScrollView>
+
+      <SectionTitle
+        title="Daftar usaha"
+        caption="Pilih tempat usaha untuk melihat antrean"
+        style={styles.sectionTitle}
+      />
+    </View>
+  );
+
+  return (
+    <Screen scroll={false} padded={false}>
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.mutedText}>Memuat daftar usaha...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centerBox}>
-          <View style={styles.stateCard}>
-            <Text style={styles.errorTitle}>Gagal Memuat Daftar Usaha</Text>
-            <Text style={styles.errorBody}>
-              {getFriendlyErrorMessage(error)}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed && styles.retryButtonPressed,
-              ]}
-              onPress={() => {
-                void refetch();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang daftar usaha"
-            >
-              <Text style={styles.retryButtonText}>Coba Lagi</Text>
-            </Pressable>
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {listHeader}
+          <View style={styles.skeletonList} accessibilityLabel="Memuat daftar usaha">
+            {[0, 1, 2].map((key) => (
+              <Card key={key} padding="md">
+                <View style={styles.cardRow}>
+                  <Skeleton width={56} height={56} radius={theme.radii.tile} />
+                  <View style={styles.skeletonCol}>
+                    <Skeleton width="65%" height={18} />
+                    <Skeleton width="40%" height={14} />
+                    <Skeleton width="85%" height={14} />
+                  </View>
+                </View>
+              </Card>
+            ))}
           </View>
-        </View>
+        </ScrollView>
+      ) : error ? (
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {listHeader}
+          <Banner
+            tone="danger"
+            title="Gagal memuat daftar usaha"
+            message={getFriendlyErrorMessage(error)}
+            actionLabel="Coba lagi"
+            onAction={() => {
+              void refetch();
+            }}
+          />
+        </ScrollView>
       ) : (
         <FlatList
           data={businesses ?? []}
           keyExtractor={(item) => item.id}
           renderItem={renderBusinessCard}
+          ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -202,184 +281,118 @@ export default function PelangganBerandaScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Usaha tidak ditemukan</Text>
-              <Text style={styles.mutedText}>
-                Coba ubah kata kunci pencarian atau pilih kategori lainnya.
-              </Text>
-            </View>
+            <Card>
+              <EmptyState
+                illustration="empty"
+                title="Usaha tidak ditemukan"
+                description="Coba ubah kata kunci pencarian atau pilih kategori lainnya."
+              />
+            </Card>
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  filterHeader: {
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    gap: theme.spacing.sm,
-  },
-  searchInput: {
-    minHeight: 46,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.body,
-  },
-  chipsContainer: {
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-  },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  chipText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textPrimary,
-  },
-  chipTextActive: {
-    color: theme.colors.surface,
-  },
   listContent: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.screen,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xxl,
     gap: theme.spacing.md,
   },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
+  headerBlock: {
+    gap: theme.spacing.md,
   },
-  cardPressed: {
-    opacity: 0.9,
+  greetingBox: {
+    paddingTop: theme.spacing.xs,
+    gap: 2,
   },
-  cardHeader: {
+  greetingTitle: {
+    ...theme.typography.title,
+  },
+  greetingSubtitle: {
+    ...theme.typography.bodyLg,
+    color: theme.colors.slateText,
+  },
+  searchBox: {
+    minHeight: theme.sizes.inputHeight,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radii.input,
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+    paddingHorizontal: theme.spacing.lg,
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm + 2,
+    ...theme.shadows.soft,
+  },
+  searchBoxFocused: {
+    borderColor: theme.colors.accent,
+  },
+  searchInput: {
+    ...theme.typography.bodyLg,
+    flex: 1,
+    minHeight: theme.sizes.inputHeight - 4,
+    paddingVertical: 0,
+  },
+  clearBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipsScroll: {
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  sectionTitle: {
+    marginTop: theme.spacing.xs,
+    marginBottom: 0,
+  },
+  cardClosed: {
+    opacity: 0.74,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  cardCenter: {
+    flex: 1,
+    gap: 4,
+  },
+  titlePillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
-  cardTitleBlock: {
-    flex: 1,
-  },
   cardTitle: {
-    ...theme.typography.subheading,
-    marginBottom: 2,
+    ...theme.typography.subtitle,
+    fontSize: 17,
+    flex: 1,
   },
   cardCategory: {
-    ...theme.typography.caption,
-    color: theme.colors.primaryDark,
-    fontWeight: '600',
+    ...theme.typography.captionStrong,
+    color: theme.colors.accent,
   },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-  },
-  statusOpen: {
-    backgroundColor: theme.colors.status.called.background,
-  },
-  statusClosed: {
-    backgroundColor: theme.colors.status.waiting.background,
-  },
-  statusText: {
-    ...theme.typography.bodyBold,
-    fontSize: 12,
-  },
-  statusOpenText: {
-    color: theme.colors.status.called.text,
-  },
-  statusClosedText: {
-    color: theme.colors.status.waiting.text,
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   cardAddress: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-  },
-  centerBox: {
+    ...theme.typography.caption,
+    fontSize: 13,
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
   },
-  mutedText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
+  skeletonList: {
+    gap: theme.spacing.md,
   },
-  stateCard: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorBody: {
-    ...theme.typography.body,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  retryButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  retryButtonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  retryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  emptyCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-  },
-  emptyTitle: {
-    ...theme.typography.subheading,
-    textAlign: 'center',
+  skeletonCol: {
+    flex: 1,
+    gap: theme.spacing.sm,
   },
 });

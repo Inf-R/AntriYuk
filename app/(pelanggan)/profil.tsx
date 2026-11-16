@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -20,6 +15,31 @@ import { useSession } from '@/hooks/useSession';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { deleteAccountConfirmSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Icon,
+  Input,
+  ListRow,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+} from '@/components/ui';
+
+function getInitials(displayName: string): string {
+  const parts = displayName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) {
+    return 'PL';
+  }
+  const first = parts[0]?.[0] ?? '';
+  const second = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  return (first + second).toUpperCase();
+}
 
 export default function ProfilPelangganScreen() {
   const router = useRouter();
@@ -93,129 +113,116 @@ export default function ProfilPelangganScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.mutedText}>Memuat profil Anda...</Text>
-      </SafeAreaView>
+      <Screen header={<ScreenHeader title="Profil" />}>
+        <Card style={styles.skeletonCard}>
+          <Skeleton width={80} height={80} radius={theme.radii.pill} />
+          <Skeleton width="55%" height={22} />
+          <Skeleton width="35%" height={28} radius={theme.radii.pill} />
+        </Card>
+      </Screen>
     );
   }
 
   if (!profile) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
-        <View style={styles.card}>
-          <Text style={styles.errorTitle}>Gagal Memuat Profil</Text>
-          <Text style={styles.mutedText}>
-            Data profil tidak dapat dimuat saat ini.
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-            ]}
-            onPress={() => {
+      <Screen header={<ScreenHeader title="Profil" />}>
+        <OfflineBanner />
+        <Card>
+          <EmptyState
+            illustration="empty"
+            title="Gagal Memuat Profil"
+            description="Data profil tidak dapat dimuat saat ini."
+            actionLabel="Coba Lagi"
+            onAction={() => {
               void refreshUserContext();
             }}
-            accessibilityRole="button"
-            accessibilityLabel="Coba muat ulang profil"
-          >
-            <Text style={styles.primaryButtonText}>Coba Lagi</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+          />
+        </Card>
+      </Screen>
     );
   }
 
+  const initials = getInitials(profile.display_name);
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OfflineBanner />
+    <Screen header={<ScreenHeader title="Profil" />}>
+      <OfflineBanner />
 
-        <View style={styles.card}>
-          <Text style={styles.title}>Profil Pelanggan</Text>
-
-          <View style={styles.infoBlock}>
-            <Text style={styles.label}>Nama Tampilan</Text>
-            <Text style={styles.value}>{profile.display_name}</Text>
+      <View style={styles.contentStack}>
+        {/* Kartu Identitas dengan Avatar Inisial & Chip Peran */}
+        <Card style={styles.identityCard}>
+          <View
+            style={styles.avatarCircle}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`Avatar inisial ${profile.display_name}`}
+          >
+            <Text style={styles.avatarInitials}>{initials}</Text>
           </View>
 
-          <View style={styles.infoBlock}>
-            <Text style={styles.label}>Peran Akun</Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>Pelanggan</Text>
-            </View>
+          <Text style={styles.displayName} accessibilityRole="header">
+            {profile.display_name}
+          </Text>
+
+          <View style={styles.roleChip}>
+            <Icon name="person-outline" size={14} color={theme.colors.primary} />
+            <Text style={styles.roleChipText}>Pelanggan</Text>
           </View>
+        </Card>
 
-          {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+        {errorMessage ? <Banner tone="danger" message={errorMessage} /> : null}
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.privacyButton,
-              pressed && !isBusy && styles.privacyButtonPressed,
-            ]}
+        {/* Menu & Aksi Akun */}
+        <Card padding="md" style={styles.menuCard}>
+          <ListRow
+            icon="shield-checkmark-outline"
+            title="Kebijakan Privasi"
+            subtitle="Pelindungan data pribadi dan hak pengguna"
             onPress={() => router.push('/kebijakan-privasi')}
             disabled={isBusy}
-            accessibilityRole="button"
             accessibilityLabel="Baca Kebijakan Privasi AntriYuk"
-          >
-            <Text style={styles.privacyButtonText}>Kebijakan Privasi</Text>
-          </Pressable>
+          />
+        </Card>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.logoutButton,
-              pressed && !isBusy && styles.logoutButtonPressed,
-              isBusy && styles.buttonDisabled,
-            ]}
-            onPress={() => {
-              void handleSignOut();
-            }}
-            disabled={isBusy}
-            accessibilityRole="button"
-            accessibilityLabel="Keluar dari akun"
-          >
-            {signingOut ? (
-              <ActivityIndicator color={theme.colors.surface} />
-            ) : (
-              <Text style={styles.logoutButtonText}>Keluar</Text>
-            )}
-          </Pressable>
-        </View>
+        <Button
+          label="Keluar"
+          variant="secondary"
+          iconLeft="log-out-outline"
+          onPress={() => {
+            void handleSignOut();
+          }}
+          loading={signingOut}
+          disabled={isBusy}
+          accessibilityLabel="Keluar dari akun"
+        />
 
         {/* ZONA BERBAHAYA: HAPUS AKUN */}
-        <View style={styles.dangerCard}>
-          <Text style={styles.dangerTitle}>Penghapusan Akun</Text>
+        <Card style={styles.dangerCard}>
+          <View style={styles.dangerHeader}>
+            <View style={styles.dangerIconWrap}>
+              <Icon
+                name="trash-outline"
+                size={18}
+                color={theme.colors.danger}
+              />
+            </View>
+            <Text style={styles.dangerTitle}>Zona Berbahaya</Text>
+          </View>
+
           <Text style={styles.dangerDescription}>
             Menghapus akun akan menghapus profil, seluruh riwayat tiket antrean,
             serta token notifikasi Anda secara permanen.
           </Text>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.deleteTriggerButton,
-              (!isOnline || isBusy) && styles.deleteTriggerDisabled,
-              pressed && isOnline && !isBusy && styles.deleteTriggerPressed,
-            ]}
+          <Button
+            label="Hapus Akun Saya"
+            variant="dangerOutline"
             onPress={handleOpenDeleteModal}
             disabled={!isOnline || isBusy}
-            accessibilityRole="button"
             accessibilityLabel="Hapus akun secara permanen"
-          >
-            <Text
-              style={[
-                styles.deleteTriggerText,
-                (!isOnline || isBusy) && styles.deleteTriggerTextDisabled,
-              ]}
-            >
-              Hapus Akun Saya
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+          />
+        </Card>
+      </View>
 
       {/* MODAL KONFIRMASI DUA TAHAP (KETIK HAPUS) */}
       <Modal
@@ -232,8 +239,18 @@ export default function ProfilPelangganScreen() {
           style={styles.modalBackdrop}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Hapus Akun Permanen?</Text>
+          <Card style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Icon
+                name="warning-outline"
+                size={26}
+                color={theme.colors.danger}
+              />
+            </View>
+
+            <Text style={styles.modalTitle} accessibilityRole="header">
+              Hapus Akun Permanen?
+            </Text>
             <Text style={styles.modalDescription}>
               Tindakan ini tidak dapat dibatalkan. Seluruh data profil, tiket
               antrean, dan cache di perangkat ini akan dihapus selamanya.
@@ -245,254 +262,161 @@ export default function ProfilPelangganScreen() {
             </Text>
 
             {deleteError ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{deleteError}</Text>
-              </View>
+              <Banner
+                tone="danger"
+                message={deleteError}
+                style={styles.modalErrorBanner}
+              />
             ) : null}
 
-            <TextInput
-              style={styles.confirmInput}
+            <Input
               value={confirmText}
               onChangeText={setConfirmText}
               placeholder="Ketik HAPUS"
-              placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="characters"
               autoCorrect={false}
               editable={!deleting}
               accessibilityLabel="Kolom konfirmasi ketik HAPUS"
+              containerStyle={styles.confirmInputWrap}
             />
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.confirmDeleteButton,
-                !canConfirmDelete && styles.buttonDisabled,
-                pressed && canConfirmDelete && styles.logoutButtonPressed,
-              ]}
-              onPress={() => {
-                void handleConfirmDeleteAccount();
-              }}
-              disabled={!canConfirmDelete}
-              accessibilityRole="button"
-              accessibilityLabel="Konfirmasi hapus akun permanen"
-            >
-              {deleting ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.logoutButtonText}>
-                  Hapus Akun Selamanya
-                </Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.cancelModalButton,
-                pressed && !deleting && styles.privacyButtonPressed,
-              ]}
-              onPress={() => setShowDeleteModal(false)}
-              disabled={deleting}
-              accessibilityRole="button"
-              accessibilityLabel="Batalkan penghapusan akun"
-            >
-              <Text style={styles.cancelModalText}>Batal</Text>
-            </Pressable>
-          </View>
+            <View style={styles.modalButtons}>
+              <Button
+                label="Hapus Akun Selamanya"
+                variant="dangerOutline"
+                iconLeft="trash-outline"
+                onPress={() => {
+                  void handleConfirmDeleteAccount();
+                }}
+                loading={deleting}
+                disabled={!canConfirmDelete}
+                accessibilityLabel="Konfirmasi hapus akun permanen"
+              />
+              <Button
+                label="Batal"
+                variant="ghost"
+                onPress={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                accessibilityLabel="Batalkan penghapusan akun"
+              />
+            </View>
+          </Card>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centerContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
+  skeletonCard: {
     alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
     gap: theme.spacing.md,
   },
-  mutedText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+  contentStack: {
+    gap: theme.spacing.lg,
   },
-  card: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
+  identityCard: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+    gap: theme.spacing.sm,
   },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.lg,
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    textAlign: 'center',
-  },
-  infoBlock: {
-    marginBottom: theme.spacing.md,
-  },
-  label: {
-    ...theme.typography.caption,
-    marginBottom: theme.spacing.xs,
-  },
-  value: {
-    ...theme.typography.subheading,
-  },
-  roleBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+  avatarCircle: {
+    width: 84,
+    height: 84,
     borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  roleBadgeText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textPrimary,
-  },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  primaryButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
+    backgroundColor: theme.colors.primarySoft,
+    borderWidth: 3,
+    borderColor: theme.colors.white,
     alignItems: 'center',
-  },
-  primaryButtonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  primaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  privacyButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+    ...theme.shadows.soft,
   },
-  privacyButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  privacyButtonText: {
-    ...theme.typography.bodyBold,
+  avatarInitials: {
+    ...theme.typography.title,
+    fontSize: 28,
     color: theme.colors.primary,
   },
-  logoutButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primaryDark,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
+  displayName: {
+    ...theme.typography.title,
+    fontSize: 22,
+    textAlign: 'center',
+  },
+  roleChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: theme.spacing.md,
+    gap: theme.spacing.xs + 1,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.xs + 2,
+    borderRadius: theme.radii.pill,
   },
-  logoutButtonPressed: {
-    opacity: 0.85,
+  roleChipText: {
+    ...theme.typography.captionStrong,
+    fontSize: 13,
+    color: theme.colors.primary,
   },
-  logoutButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
+  menuCard: {
+    paddingVertical: theme.spacing.xs,
   },
   dangerCard: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
+    marginTop: theme.spacing.sm,
+    backgroundColor: theme.colors.white,
     borderWidth: 1,
-    borderColor: theme.colors.status.cancelled.text,
-    padding: theme.spacing.xl,
+    borderColor: theme.colors.dangerBorderSoft,
+    gap: theme.spacing.md,
+  },
+  dangerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  dangerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.status.cancelled.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dangerTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.subtitle,
+    fontSize: 16,
+    color: theme.colors.statusInk.cancelled,
   },
   dangerDescription: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.lg,
-  },
-  deleteTriggerButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    borderWidth: 1.5,
-    borderColor: theme.colors.status.cancelled.text,
-    backgroundColor: theme.colors.status.cancelled.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteTriggerPressed: {
-    opacity: 0.85,
-  },
-  deleteTriggerDisabled: {
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  deleteTriggerText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.cancelled.text,
-  },
-  deleteTriggerTextDisabled: {
-    color: theme.colors.textMuted,
+    color: theme.colors.slateText,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(43, 45, 66, 0.55)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.xl,
+    padding: theme.spacing.screen,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
+  },
+  modalIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.status.cancelled.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.md,
   },
   modalTitle: {
-    ...theme.typography.heading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.sm,
+    ...theme.typography.subtitle,
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.statusInk.cancelled,
+    marginBottom: theme.spacing.xs,
   },
   modalDescription: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: theme.colors.ink,
     marginBottom: theme.spacing.md,
   },
   modalInstruction: {
@@ -501,38 +425,15 @@ const styles = StyleSheet.create({
   },
   modalKeyword: {
     ...theme.typography.bodyBold,
-    color: theme.colors.status.cancelled.text,
+    color: theme.colors.statusInk.cancelled,
   },
-  confirmInput: {
-    minHeight: 48,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.bodyBold,
+  modalErrorBanner: {
+    marginBottom: theme.spacing.md,
+  },
+  confirmInputWrap: {
     marginBottom: theme.spacing.lg,
   },
-  confirmDeleteButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.status.cancelled.text,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  cancelModalButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelModalText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textPrimary,
+  modalButtons: {
+    gap: theme.spacing.xs,
   },
 });

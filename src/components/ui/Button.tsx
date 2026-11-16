@@ -1,14 +1,13 @@
 /**
  * Button — tombol dengan varian primary, accent, secondary (outline),
- * dangerOutline, dan ghost. Ukuran m (50) dan l (56). Mendukung loading,
- * disabled, ikon kiri/kanan, dan efek tekan skala 0,98 (dimatikan bila
- * reduce motion aktif).
+ * dangerOutline, dangerGhost (teks merah tanpa kotak), dan ghost.
+ * Ukuran m (50), l (56), dan xl (60). Mendukung loading, disabled,
+ * ikon kiri/kanan, dan efek tekan skala 0,98 (hormati reduce motion).
  *
  * Contoh:
- *   <Button label="Ambil Antrean" onPress={join} size="l" loading={isPending} />
- *   <Button label="Batalkan" variant="dangerOutline" iconLeft="close-circle-outline"
- *           onPress={confirmCancel} disabled={busy} />
- *   <Button label="Lewati" variant="ghost" fullWidth={false} onPress={skip} />
+ *   <Button label="Ambil Nomor" onPress={join} size="l" loading={isPending} />
+ *   <Button label="Panggil Berikutnya" size="xl" iconRight="arrow-forward" onPress={callNext} />
+ *   <Button label="Batalkan tiket" variant="dangerGhost" onPress={confirmCancel} />
  */
 import React, { useRef } from 'react';
 import {
@@ -26,8 +25,14 @@ import { colors, motion, radii, sizes, spacing, typography } from '@/lib/theme';
 import { Icon, IconName } from './Icon';
 import { useReducedMotion } from './useReducedMotion';
 
-export type ButtonVariant = 'primary' | 'accent' | 'secondary' | 'dangerOutline' | 'ghost';
-export type ButtonSize = 'm' | 'l';
+export type ButtonVariant =
+  | 'primary'
+  | 'accent'
+  | 'secondary'
+  | 'dangerOutline'
+  | 'dangerGhost'
+  | 'ghost';
+export type ButtonSize = 'm' | 'l' | 'xl';
 
 export interface ButtonProps {
   label: string;
@@ -57,6 +62,7 @@ const variantTokens: Record<ButtonVariant, VariantTokens> = {
   accent: { background: colors.accent, border: colors.accent, text: colors.white },
   secondary: { background: colors.white, border: colors.primary, text: colors.primary },
   dangerOutline: { background: colors.white, border: colors.danger, text: colors.danger },
+  dangerGhost: { background: 'transparent', border: 'transparent', text: colors.danger },
   ghost: { background: 'transparent', border: 'transparent', text: colors.primary },
 };
 
@@ -90,8 +96,13 @@ export function Button({
     }).start();
   };
 
-  const height = size === 'l' ? sizes.buttonLargeHeight : sizes.buttonMinHeight;
-  const iconSize = size === 'l' ? sizes.iconLg : sizes.iconMd;
+  const height =
+    size === 'xl'
+      ? sizes.buttonXLHeight
+      : size === 'l'
+        ? sizes.buttonLargeHeight
+        : sizes.buttonMinHeight;
+  const iconSize = size === 'xl' || size === 'l' ? sizes.iconLg : sizes.iconMd;
 
   return (
     <Animated.View
@@ -113,7 +124,7 @@ export function Button({
             minHeight: height,
             backgroundColor: tokens.background,
             borderColor: tokens.border,
-            paddingHorizontal: size === 'l' ? spacing.xl : spacing.screen,
+            paddingHorizontal: size === 'xl' || size === 'l' ? spacing.xl : spacing.screen,
           },
           variant === 'primary' || variant === 'accent' ? styles.filled : null,
           pressed && !reduceMotion ? styles.pressed : null,
@@ -126,9 +137,13 @@ export function Button({
           <Icon name={iconLeft} size={iconSize} color={tokens.text} />
         ) : null}
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           style={[
-            size === 'l' ? styles.labelLarge : styles.label,
+            size === 'xl'
+              ? styles.labelXL
+              : size === 'l'
+                ? styles.labelLarge
+                : styles.label,
             { color: tokens.text },
           ]}
         >
@@ -156,6 +171,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radii.button,
     borderWidth: 1.5,
+    paddingVertical: spacing.sm,
   },
   filled: {
     shadowColor: colors.primary,
@@ -174,10 +190,19 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.bodyLgStrong,
+    textAlign: 'center',
   },
   labelLarge: {
     ...typography.bodyLgStrong,
     fontSize: 16,
     lineHeight: 22,
+    textAlign: 'center',
+  },
+  labelXL: {
+    ...typography.bodyLgStrong,
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 24,
+    textAlign: 'center',
   },
 });

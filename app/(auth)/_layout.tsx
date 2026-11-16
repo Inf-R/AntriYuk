@@ -6,13 +6,8 @@ export default function AuthLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTintColor: theme.colors.textPrimary,
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
-        },
-        contentStyle: { backgroundColor: theme.colors.background },
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.canvas },
       }}
     >
       <Stack.Screen name="login" options={{ title: 'Masuk ke AntriYuk' }} />

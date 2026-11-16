@@ -1,110 +1,67 @@
 import React from 'react';
-import { type ColorValue, Pressable, Text, StyleSheet } from 'react-native';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
+import { BottomTabs, type BottomTabItemConfig } from '@/components/ui';
 import { theme } from '@/lib/theme';
 
-function TabBadgeIcon({ symbol, color }: { symbol: string; color: ColorValue }) {
-  return <Text style={[styles.tabIcon, { color }]}>{symbol}</Text>;
-}
+const CUSTOMER_TAB_ITEMS: readonly BottomTabItemConfig[] = [
+  {
+    routeName: 'index',
+    label: 'Beranda',
+    activeIcon: 'home',
+    inactiveIcon: 'home-outline',
+    accessibilityLabel: 'Tab Beranda',
+  },
+  {
+    routeName: 'tiket',
+    label: 'Antrean',
+    activeIcon: 'ticket',
+    inactiveIcon: 'ticket-outline',
+    accessibilityLabel: 'Tab Antrean Saya',
+  },
+  {
+    routeName: 'riwayat',
+    label: 'Riwayat',
+    activeIcon: 'time',
+    inactiveIcon: 'time-outline',
+    accessibilityLabel: 'Tab Riwayat Antrean',
+  },
+  {
+    routeName: 'profil',
+    label: 'Profil',
+    activeIcon: 'person-circle',
+    inactiveIcon: 'person-circle-outline',
+    accessibilityLabel: 'Tab Profil Pelanggan',
+  },
+];
 
 export default function PelangganLayout() {
-  const router = useRouter();
-
   return (
     <Tabs
       backBehavior="history"
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTintColor: theme.colors.textPrimary,
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
-        },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
+        headerShown: false,
+        sceneStyle: { backgroundColor: theme.colors.canvas },
       }}
+      tabBar={(props) => (
+        <BottomTabs
+          {...props}
+          items={CUSTOMER_TAB_ITEMS}
+          hideBarOnRoutes={['usaha/[id]']}
+        />
+      )}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Beranda',
-          headerTitle: 'Daftar Usaha',
-          tabBarIcon: ({ color }) => <TabBadgeIcon symbol="⌂" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tiket"
-        options={{
-          title: 'Tiket',
-          headerTitle: 'Tiket Antrean Saya',
-          tabBarIcon: ({ color }) => <TabBadgeIcon symbol="♯" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="riwayat"
-        options={{
-          title: 'Riwayat',
-          headerTitle: 'Riwayat Antrean',
-          tabBarIcon: ({ color }) => <TabBadgeIcon symbol="◷" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profil"
-        options={{
-          title: 'Profil',
-          headerTitle: 'Profil Pelanggan',
-          tabBarIcon: ({ color }) => <TabBadgeIcon symbol="◉" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Beranda' }} />
+      <Tabs.Screen name="tiket" options={{ title: 'Antrean Saya' }} />
+      <Tabs.Screen name="riwayat" options={{ title: 'Riwayat Antrean' }} />
+      <Tabs.Screen name="profil" options={{ title: 'Profil' }} />
       <Tabs.Screen
         name="usaha/[id]"
         options={{
           title: 'Detail Usaha',
           tabBarItemStyle: { display: 'none' },
           tabBarButton: () => null,
-          headerLeft: () => (
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.navigate('/(pelanggan)')}
-              accessibilityRole="button"
-              accessibilityLabel="Kembali ke daftar usaha"
-            >
-              <Text style={styles.backArrow}>←</Text>
-            </Pressable>
-          ),
         }}
       />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabIcon: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  backButton: {
-    minHeight: 44,
-    minWidth: 44,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backArrow: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: theme.colors.textPrimary,
-  },
-});

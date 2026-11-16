@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 import { useMyBusiness, useUpdateBusiness } from '@/hooks/useMyBusiness';
 import { useOnline } from '@/hooks/useOnline';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -18,6 +7,19 @@ import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES, businessFormSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
 import type { BusinessCategory } from '@/types/database';
+import {
+  Banner,
+  Button,
+  Card,
+  CategoryTile,
+  Chip,
+  EmptyState,
+  Input,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+  Stepper,
+} from '@/components/ui';
 
 export default function PengaturanUsahaScreen() {
   const { isOnline } = useOnline();
@@ -81,341 +83,217 @@ export default function PengaturanUsahaScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Memuat data usaha...</Text>
-      </SafeAreaView>
+      <Screen header={<ScreenHeader title="Pengaturan Usaha" />}>
+        <View style={styles.skeletonStack} accessibilityLabel="Memuat pengaturan usaha">
+          <Card style={styles.skeletonCard}>
+            <Skeleton width={56} height={56} radius={theme.radii.tile} />
+            <Skeleton width="100%" height={52} radius={theme.radii.input} />
+            <Skeleton width="100%" height={40} radius={theme.radii.pill} />
+            <Skeleton width="100%" height={52} radius={theme.radii.input} />
+          </Card>
+          <Card style={styles.skeletonCard}>
+            <Skeleton width="60%" height={20} />
+            <Skeleton width="100%" height={56} radius={theme.radii.input} />
+            <Skeleton width="100%" height={56} radius={theme.radii.input} />
+          </Card>
+        </View>
+      </Screen>
     );
   }
 
   if (loadError || !business) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen header={<ScreenHeader title="Pengaturan Usaha" />}>
         <OfflineBanner />
-        <View style={styles.centeredContainer}>
-          <View style={styles.card}>
-            <Text style={styles.errorTitle}>Gagal Memuat Pengaturan</Text>
-            <Text style={styles.errorText}>
-              {loadError
+        <Card>
+          <EmptyState
+            illustration="empty"
+            title="Gagal Memuat Pengaturan"
+            description={
+              loadError
                 ? getFriendlyErrorMessage(loadError)
-                : 'Data usaha tidak ditemukan.'}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                styles.retryButtonMargin,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => {
-                void refetch();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang data usaha"
-            >
-              <Text style={styles.buttonText}>Coba Lagi</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+                : 'Data usaha tidak ditemukan.'
+            }
+            actionLabel="Coba Lagi"
+            onAction={() => {
+              void refetch();
+            }}
+          />
+        </Card>
+      </Screen>
     );
   }
 
   const isSaving = updateBusinessMutation.isPending;
   const isActionDisabled = isSaving || !isOnline;
+  const selectedCategoryLabel =
+    BUSINESS_CATEGORIES.find((c) => c.value === category)?.label ?? category;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      header={<ScreenHeader title="Pengaturan Usaha" />}
+      footer={
+        <Button
+          label="Simpan Perubahan"
+          size="l"
+          iconLeft="checkmark-circle-outline"
+          onPress={() => {
+            void handleSave();
+          }}
+          loading={isSaving}
+          disabled={isActionDisabled}
+          accessibilityLabel="Simpan perubahan pengaturan usaha"
+        />
+      }
+    >
       <OfflineBanner />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.card}>
-            <Text style={styles.title}>Pengaturan Usaha</Text>
-            <Text style={styles.subtitle}>
-              Perbarui informasi usaha, estimasi lama layanan, dan masa tunggu setelah panggilan.
-            </Text>
 
-            {successMessage ? (
-              <View style={styles.successBox}>
-                <Text style={styles.successText}>{successMessage}</Text>
-              </View>
-            ) : null}
+      <View style={styles.contentStack}>
+        {successMessage ? (
+          <Banner tone="success" message={successMessage} />
+        ) : null}
 
-            {errorMessage ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
+        {errorMessage ? (
+          <Banner tone="danger" message={errorMessage} />
+        ) : null}
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nama Usaha</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Nama usaha"
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={80}
-                editable={!isSaving}
-              />
+        {/* Kartu 1: Informasi Usaha */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.identityPreview}>
+            <CategoryTile category={category} size={56} iconSize={28} />
+            <View style={styles.identityTexts}>
+              <Text style={styles.sectionHeading} accessibilityRole="header">
+                Informasi Usaha
+              </Text>
+              <Text style={styles.sectionCaption}>
+                {name.trim() || 'Nama Usaha'} • {selectedCategoryLabel}
+              </Text>
             </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Kategori Usaha</Text>
-              <View style={styles.chipsWrap}>
-                {BUSINESS_CATEGORIES.map((item) => {
-                  const selected = category === item.value;
-                  return (
-                    <Pressable
-                      key={item.value}
-                      style={[styles.chip, selected && styles.chipActive]}
-                      onPress={() => setCategory(item.value)}
-                      disabled={isSaving}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={`Kategori ${item.label}`}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          selected && styles.chipTextActive,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Alamat Usaha</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Alamat lengkap usaha"
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={200}
-                multiline
-                numberOfLines={2}
-                editable={!isSaving}
-              />
-            </View>
-
-            <View style={styles.rowFields}>
-              <View style={[styles.fieldGroup, styles.halfField]}>
-                <Text style={styles.label}>Rata-rata Layanan (Menit)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={avgServiceMinutesText}
-                  onChangeText={(val) =>
-                    setAvgServiceMinutesText(val.replace(/\D/g, ''))
-                  }
-                  placeholder="10"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                  editable={!isSaving}
-                />
-                <Text style={styles.helperText}>Rentang 1–240 menit</Text>
-              </View>
-
-              <View style={[styles.fieldGroup, styles.halfField]}>
-                <Text style={styles.label}>Masa Tunggu Panggilan (Menit)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={graceMinutesText}
-                  onChangeText={(val) =>
-                    setGraceMinutesText(val.replace(/\D/g, ''))
-                  }
-                  placeholder="5"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  editable={!isSaving}
-                />
-                <Text style={styles.helperText}>Rentang 1–30 menit</Text>
-              </View>
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && !isActionDisabled && styles.buttonPressed,
-                isActionDisabled && styles.buttonDisabled,
-              ]}
-              onPress={() => {
-                void handleSave();
-              }}
-              disabled={isActionDisabled}
-              accessibilityRole="button"
-              accessibilityLabel="Simpan perubahan pengaturan usaha"
-            >
-              {isSaving ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.buttonText}>Simpan Perubahan</Text>
-              )}
-            </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          <Input
+            label="Nama Usaha"
+            iconLeft="storefront-outline"
+            value={name}
+            onChangeText={setName}
+            placeholder="Contoh: Klinik Pratama Sehat"
+            maxLength={80}
+            editable={!isSaving}
+          />
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Kategori Usaha</Text>
+            <View style={styles.chipsWrap}>
+              {BUSINESS_CATEGORIES.map((item) => {
+                const selected = category === item.value;
+                return (
+                  <Chip
+                    key={item.value}
+                    label={item.label}
+                    category={item.value}
+                    active={selected}
+                    disabled={isSaving}
+                    onPress={() => setCategory(item.value)}
+                    accessibilityLabel={`Kategori ${item.label}`}
+                  />
+                );
+              })}
+            </View>
+          </View>
+
+          <Input
+            label="Alamat"
+            iconLeft="location-outline"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Alamat lengkap lokasi usaha"
+            maxLength={200}
+            editable={!isSaving}
+          />
+        </Card>
+
+        {/* Kartu 2: Pengaturan Antrean */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeaderBlock}>
+            <Text style={styles.sectionHeading} accessibilityRole="header">
+              Pengaturan Antrean
+            </Text>
+            <Text style={styles.sectionCaption}>
+              Digunakan untuk menghitung estimasi waktu tunggu dan batas kedatangan pelanggan.
+            </Text>
+          </View>
+
+          <Stepper
+            label="Rata-rata layanan"
+            valueText={avgServiceMinutesText}
+            onChangeText={setAvgServiceMinutesText}
+            min={1}
+            max={240}
+            unit="menit"
+            helper="Rentang 1–240 menit"
+            disabled={isSaving}
+          />
+
+          <Stepper
+            label="Masa tunggu panggilan"
+            valueText={graceMinutesText}
+            onChangeText={setGraceMinutesText}
+            min={1}
+            max={30}
+            unit="menit"
+            helper="Rentang 1–30 menit"
+            disabled={isSaving}
+          />
+        </Card>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  skeletonStack: {
+    gap: theme.spacing.lg,
   },
-  centeredContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  loadingText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.md,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.lg,
-  },
-  successBox: {
-    backgroundColor: theme.colors.status.called.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  successText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.called.text,
-  },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  retryButtonMargin: {
-    marginTop: theme.spacing.lg,
-  },
-  fieldGroup: {
-    marginBottom: theme.spacing.md,
-  },
-  rowFields: {
-    flexDirection: 'row',
+  skeletonCard: {
     gap: theme.spacing.md,
   },
-  halfField: {
+  contentStack: {
+    gap: theme.spacing.lg,
+  },
+  sectionCard: {
+    gap: theme.spacing.lg,
+  },
+  identityPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderSoft,
+  },
+  identityTexts: {
     flex: 1,
+    gap: 2,
   },
-  label: {
-    ...theme.typography.bodyBold,
-    marginBottom: theme.spacing.xs,
+  cardHeaderBlock: {
+    gap: 4,
   },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.body,
+  sectionHeading: {
+    ...theme.typography.subtitle,
   },
-  multilineInput: {
-    minHeight: 72,
-    paddingTop: theme.spacing.sm,
-    textAlignVertical: 'top',
+  sectionCaption: {
+    ...theme.typography.caption,
+  },
+  fieldBlock: {
+    gap: theme.spacing.sm,
+  },
+  fieldLabel: {
+    ...theme.typography.label,
+    color: theme.colors.ink,
   },
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
-  },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  chipText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textPrimary,
-  },
-  chipTextActive: {
-    color: theme.colors.surface,
-  },
-  helperText: {
-    ...theme.typography.caption,
-    marginTop: theme.spacing.xs,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
   },
 });

@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useBusinessDetail, useTakeTicket } from '@/hooks/useCustomerQueue';
 import { useOnline } from '@/hooks/useOnline';
@@ -15,10 +9,28 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES } from '@/lib/validation';
 import { theme } from '@/lib/theme';
+import {
+  Banner,
+  Button,
+  Card,
+  CategoryTile,
+  EmptyState,
+  FadeInView,
+  Icon,
+  IconButton,
+  ListRow,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+  StatusPill,
+} from '@/components/ui';
+
+const HERO_OVERLAP = 28;
 
 export default function DetailUsahaScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isOnline } = useOnline();
 
   const { data, isLoading, isRefetching, error, refetch } =
@@ -26,43 +38,67 @@ export default function DetailUsahaScreen() {
   const takeTicketMutation = useTakeTicket();
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(pelanggan)');
+    }
+  };
+
   if (isLoading) {
     return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.mutedText}>Memuat informasi usaha...</Text>
-      </View>
+      <Screen
+        edges={['top', 'left', 'right', 'bottom']}
+        header={
+          <ScreenHeader
+            title="Detail Usaha"
+            onBack={handleBack}
+            backAccessibilityLabel="Kembali ke daftar usaha"
+          />
+        }
+      >
+        <StatusBar style="dark" />
+        <Card style={styles.skeletonCard}>
+          <Skeleton width={64} height={64} radius={theme.radii.card} />
+          <Skeleton width="70%" height={24} />
+          <Skeleton width="50%" height={16} />
+          <Skeleton width="100%" height={76} radius={theme.radii.tile} />
+        </Card>
+      </Screen>
     );
   }
 
   if (error || !data) {
     return (
-      <View style={styles.container}>
+      <Screen
+        edges={['top', 'left', 'right', 'bottom']}
+        header={
+          <ScreenHeader
+            title="Detail Usaha"
+            onBack={handleBack}
+            backAccessibilityLabel="Kembali ke daftar usaha"
+          />
+        }
+      >
+        <StatusBar style="dark" />
         <OfflineBanner />
-        <View style={styles.centerBox}>
-          <View style={styles.card}>
-            <Text style={styles.errorTitle}>Gagal Memuat Detail Usaha</Text>
-            <Text style={styles.errorBody}>
-              {error
+        <Card>
+          <EmptyState
+            illustration="empty"
+            title="Gagal Memuat Detail Usaha"
+            description={
+              error
                 ? getFriendlyErrorMessage(error)
-                : 'Data usaha tidak ditemukan.'}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => {
-                void refetch();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang detail usaha"
-            >
-              <Text style={styles.buttonText}>Coba Lagi</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
+                : 'Data usaha tidak ditemukan.'
+            }
+            actionLabel="Coba Lagi"
+            onAction={() => {
+              void refetch();
+            }}
+          />
+        </Card>
+      </Screen>
     );
   }
 
@@ -76,6 +112,10 @@ export default function DetailUsahaScreen() {
   const categoryLabel =
     BUSINESS_CATEGORIES.find((c) => c.value === business.category)?.label ??
     business.category;
+  const addressText =
+    business.address && business.address.trim().length > 0
+      ? business.address
+      : 'Alamat belum dicantumkan';
 
   async function handleTakeTicket(): Promise<void> {
     if (!canTakeTicket) {
@@ -92,11 +132,12 @@ export default function DetailUsahaScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <OfflineBanner />
+    <View style={styles.root}>
+      <StatusBar style="light" />
       <ScrollView
-        style={styles.container}
+        style={styles.flex}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -107,299 +148,329 @@ export default function DetailUsahaScreen() {
           />
         }
       >
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>{business.name}</Text>
-            <Text style={styles.category}>{categoryLabel}</Text>
+        {/* Blok Hero #2B2D42 (ink) */}
+        <View
+          style={[
+            styles.hero,
+            { paddingTop: insets.top + theme.spacing.sm },
+          ]}
+        >
+          <View style={styles.heroTopBar}>
+            <IconButton
+              icon="chevron-back"
+              onPress={handleBack}
+              accessibilityLabel="Kembali ke daftar usaha"
+            />
+            <StatusPill status={isQueueOpen ? 'open' : 'closed'} />
           </View>
 
-          <View
-            style={[
-              styles.statusBadge,
-              isQueueOpen ? styles.statusOpen : styles.statusClosed,
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusText,
-                isQueueOpen ? styles.statusOpenText : styles.statusClosedText,
-              ]}
-            >
-              {isQueueOpen ? 'Buka' : 'Tutup'}
+          <View style={styles.heroBody}>
+            <CategoryTile
+              category={business.category}
+              size={64}
+              iconSize={32}
+            />
+            <View style={styles.heroTexts}>
+              <Text style={styles.heroCategory}>{categoryLabel}</Text>
+              <Text style={styles.heroTitle} accessibilityRole="header">
+                {business.name}
+              </Text>
+              <View style={styles.heroAddressRow}>
+                <Icon
+                  name="location-outline"
+                  size={15}
+                  color={theme.colors.onInkSecondary}
+                />
+                <Text style={styles.heroAddress}>{addressText}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <FadeInView style={styles.bodyContent}>
+          <OfflineBanner />
+
+          {/* Kartu 4 Metrik Sejajar */}
+          <Card style={styles.metricsCard} padding="md">
+            <View style={styles.metricsRow}>
+              <View
+                style={styles.metricCol}
+                accessible
+                accessibilityLabel={`Menunggu: ${waitingCount} orang`}
+              >
+                <Text style={styles.metricValue}>{waitingCount}</Text>
+                <Text style={styles.metricLabel} numberOfLines={2}>
+                  Menunggu
+                </Text>
+              </View>
+
+              <View style={styles.metricDivider} />
+
+              <View
+                style={styles.metricCol}
+                accessible
+                accessibilityLabel={`Sedang dilayani: nomor ${currentNumber}`}
+              >
+                <Text style={[styles.metricValue, styles.metricValuePrimary]}>
+                  {currentNumber}
+                </Text>
+                <Text style={styles.metricLabel} numberOfLines={2}>
+                  Sedang dilayani
+                </Text>
+              </View>
+
+              <View style={styles.metricDivider} />
+
+              <View
+                style={styles.metricCol}
+                accessible
+                accessibilityLabel={`Rata-rata layanan: ${business.avg_service_minutes} menit`}
+              >
+                <Text style={styles.metricValue}>
+                  {business.avg_service_minutes}
+                  <Text style={styles.metricUnit}> mnt</Text>
+                </Text>
+                <Text style={styles.metricLabel} numberOfLines={2}>
+                  Rata-rata layanan
+                </Text>
+              </View>
+
+              <View style={styles.metricDivider} />
+
+              <View
+                style={styles.metricCol}
+                accessible
+                accessibilityLabel={`Masa tunggu: ${business.grace_minutes} menit`}
+              >
+                <Text style={styles.metricValue}>
+                  {business.grace_minutes}
+                  <Text style={styles.metricUnit}> mnt</Text>
+                </Text>
+                <Text style={styles.metricLabel} numberOfLines={2}>
+                  Masa tunggu
+                </Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Informasi Usaha & Ketentuan Antrean */}
+          <Card>
+            <Text style={styles.infoHeading} accessibilityRole="header">
+              Informasi Antrean
             </Text>
-          </View>
-        </View>
+            <ListRow
+              icon="hourglass-outline"
+              title={`Datang dalam ${business.grace_minutes} menit setelah dipanggil`}
+              subtitle="Pastikan Anda berada di sekitar lokasi saat giliran hampir tiba agar tiket tidak hangus."
+              divider
+            />
+            <ListRow
+              icon="timer-outline"
+              title={`Rata-rata layanan ± ${business.avg_service_minutes} menit`}
+              subtitle="Waktu tunggu dihitung otomatis berdasarkan jumlah antrean di depan Anda."
+              divider
+            />
+            <ListRow
+              icon="location-outline"
+              title="Lokasi Usaha"
+              subtitle={addressText}
+            />
+          </Card>
 
-        <Text style={styles.address}>
-          {business.address && business.address.trim().length > 0
-            ? business.address
-            : 'Alamat belum dicantumkan'}
-        </Text>
+          {actionError ? (
+            <Banner tone="danger" message={actionError} />
+          ) : null}
+        </FadeInView>
+      </ScrollView>
 
-        {/* METRIK ANTREAN HARI INI */}
-        <View style={styles.metricsRow}>
-          <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>Sedang Dilayani</Text>
-            <Text style={styles.metricValue}>{currentNumber}</Text>
-          </View>
-
-          <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>Jumlah Menunggu</Text>
-            <Text style={styles.metricValue}>{waitingCount}</Text>
-          </View>
-        </View>
-
-        {/* KETERANGAN GRACE MINUTES */}
-        <View style={styles.noticeBox}>
-          <Text style={styles.noticeText}>
-            Datang dalam {business.grace_minutes} menit setelah dipanggil
-          </Text>
-          <Text style={styles.noticeSubtext}>
-            Rata-rata layanan sekitar {business.avg_service_minutes} menit per pelanggan.
-          </Text>
-        </View>
-
-        {actionError ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{actionError}</Text>
-          </View>
-        ) : null}
-
-        {/* KETERANGAN BILA TOMBOL NONAKTIF */}
+      {/* Bar Tombol Tetap di Bawah */}
+      <View
+        style={[
+          styles.bottomBar,
+          { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
+        ]}
+      >
         {!isQueueOpen ? (
-          <View style={styles.disabledInfoBox}>
-            <Text style={styles.disabledInfoText}>
+          <View style={styles.disabledHintRow}>
+            <Icon
+              name="moon-outline"
+              size={16}
+              color={theme.colors.slateText}
+            />
+            <Text style={styles.disabledHintText}>
               Antrean saat ini sedang tutup. Anda belum dapat mengambil nomor.
             </Text>
           </View>
         ) : hasActiveTicketHere ? (
-          <View style={styles.disabledInfoBox}>
-            <Text style={styles.disabledInfoText}>
+          <View style={styles.disabledHintRow}>
+            <Icon
+              name="information-circle-outline"
+              size={16}
+              color={theme.colors.accent}
+            />
+            <Text style={styles.disabledHintText}>
               Anda masih memiliki tiket antrean aktif di usaha ini.
             </Text>
           </View>
         ) : null}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            !canTakeTicket && styles.buttonDisabled,
-            pressed && canTakeTicket && styles.buttonPressed,
-          ]}
+        <Button
+          label="Ambil Nomor"
+          size="l"
+          iconLeft="ticket-outline"
           onPress={() => {
             void handleTakeTicket();
           }}
+          loading={isSubmitting}
           disabled={!canTakeTicket}
-          accessibilityRole="button"
           accessibilityLabel="Ambil nomor antrean"
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color={theme.colors.surface} />
-          ) : (
-            <Text style={styles.buttonText}>Ambil Nomor</Text>
-          )}
-        </Pressable>
+        />
 
         {hasActiveTicketHere ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && styles.secondaryButtonPressed,
-            ]}
+          <Button
+            label="Lihat Tiket Saya"
+            variant="secondary"
+            iconRight="arrow-forward"
             onPress={() => router.navigate('/(pelanggan)/tiket')}
-            accessibilityRole="button"
             accessibilityLabel="Lihat tiket saya"
-          >
-            <Text style={styles.secondaryButtonText}>Lihat Tiket Saya</Text>
-          </Pressable>
+          />
         ) : null}
       </View>
-      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.canvas,
+  },
+  flex: {
+    flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
   },
-  centerBox: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
+  skeletonCard: {
+    gap: theme.spacing.md,
   },
-  mutedText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.sm,
-    textAlign: 'center',
+  hero: {
+    backgroundColor: theme.colors.ink,
+    borderBottomLeftRadius: theme.radii.sheet,
+    borderBottomRightRadius: theme.radii.sheet,
+    paddingHorizontal: theme.spacing.screen,
+    paddingBottom: theme.spacing.xl + HERO_OVERLAP,
+    gap: theme.spacing.lg,
   },
-  card: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  headerRow: {
+  heroTopBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
   },
-  titleBlock: {
+  heroBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.lg,
+  },
+  heroTexts: {
+    flex: 1,
+    gap: 4,
+  },
+  heroCategory: {
+    ...theme.typography.captionStrong,
+    color: theme.colors.primarySoft,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  heroTitle: {
+    ...theme.typography.title,
+    fontSize: 24,
+    lineHeight: 30,
+    color: theme.colors.onInk,
+  },
+  heroAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  heroAddress: {
+    ...theme.typography.body,
+    color: theme.colors.onInkSecondary,
     flex: 1,
   },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: 2,
+  bodyContent: {
+    paddingHorizontal: theme.spacing.screen,
+    gap: theme.spacing.lg,
   },
-  category: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primaryDark,
-  },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-  },
-  statusOpen: {
-    backgroundColor: theme.colors.status.called.background,
-  },
-  statusClosed: {
-    backgroundColor: theme.colors.status.waiting.background,
-  },
-  statusText: {
-    ...theme.typography.bodyBold,
-  },
-  statusOpenText: {
-    color: theme.colors.status.called.text,
-  },
-  statusClosedText: {
-    color: theme.colors.status.waiting.text,
-  },
-  address: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.lg,
+  metricsCard: {
+    marginTop: -HERO_OVERLAP,
   },
   metricsRow: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    alignItems: 'stretch',
   },
-  metricBox: {
+  metricCol: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: 2,
+    gap: 4,
+  },
+  metricValue: {
+    ...theme.typography.subtitle,
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.ink,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+  },
+  metricValuePrimary: {
+    color: theme.colors.primary,
+  },
+  metricUnit: {
+    ...theme.typography.captionStrong,
+    color: theme.colors.slateText,
   },
   metricLabel: {
     ...theme.typography.caption,
-    marginBottom: theme.spacing.xs,
+    fontSize: 12,
+    lineHeight: 15,
     textAlign: 'center',
   },
-  metricValue: {
-    ...theme.typography.heading,
-    fontSize: 32,
-    lineHeight: 38,
+  metricDivider: {
+    width: 1,
+    backgroundColor: theme.colors.borderSoft,
+    marginVertical: theme.spacing.xs,
   },
-  noticeBox: {
-    backgroundColor: theme.colors.status.approaching.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+  infoHeading: {
+    ...theme.typography.subtitle,
+    fontSize: 17,
+    marginBottom: theme.spacing.xs,
   },
-  noticeText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.approaching.text,
-    marginBottom: 2,
+  bottomBar: {
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing.screen,
+    paddingTop: theme.spacing.md,
+    borderTopLeftRadius: theme.radii.card,
+    borderTopRightRadius: theme.radii.card,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.borderSoft,
+    gap: theme.spacing.sm,
+    ...theme.shadows.soft,
   },
-  noticeSubtext: {
+  disabledHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs + 2,
+    paddingVertical: 2,
+  },
+  disabledHintText: {
     ...theme.typography.caption,
-    color: theme.colors.textPrimary,
-  },
-  disabledInfoBox: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  disabledInfoText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.slateText,
     textAlign: 'center',
-  },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorBody: {
-    ...theme.typography.body,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  secondaryButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.md,
-  },
-  secondaryButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  secondaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
+    flex: 1,
   },
 });

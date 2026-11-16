@@ -1,11 +1,11 @@
 /**
- * ScreenHeader — judul besar, subjudul opsional, tombol kembali bulat putih
- * berbayangan lembut, dan slot aksi di kanan.
+ * ScreenHeader — bilah kepala layar dengan judul di tengah (default) atau kiri,
+ * tombol kembali bulat putih berbayangan lembut, subjudul opsional, dan slot aksi kanan.
  *
  * Contoh:
- *   <ScreenHeader title="Riwayat" subtitle="Antrean yang pernah kamu ambil" />
- *   <ScreenHeader title="Detail Usaha" onBack={() => router.back()}
- *                 right={<IconButton icon="share-outline" ... />} />
+ *   <ScreenHeader title="Antrean Saya" />
+ *   <ScreenHeader title="Detail Usaha" onBack={() => router.back()} />
+ *   <ScreenHeader title="Buat akun" subtitle="Lengkapi data berikut" align="left" onBack={...} />
  */
 import React, { ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -17,10 +17,12 @@ export interface ScreenHeaderProps {
   subtitle?: string;
   /** Teks kecil di atas judul, mis. nama usaha. */
   eyebrow?: string;
-  /** Bila diisi, tampilkan tombol kembali. */
+  /** Posisi judul. Default 'center' sesuai acuan visual. */
+  align?: 'center' | 'left';
+  /** Bila diisi, tampilkan tombol kembali bulat putih. */
   onBack?: () => void;
   backAccessibilityLabel?: string;
-  /** Slot aksi di kanan (mis. IconButton). */
+  /** Slot aksi di kanan (mis. IconButton atau pemilih tanggal). */
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }
@@ -29,38 +31,77 @@ export function ScreenHeader({
   title,
   subtitle,
   eyebrow,
+  align = 'center',
   onBack,
   backAccessibilityLabel = 'Kembali',
   right,
   style,
 }: ScreenHeaderProps) {
-  const showTopBar = Boolean(onBack) || Boolean(right);
+  if (align === 'left') {
+    const showTopBar = Boolean(onBack) || Boolean(right);
+    return (
+      <View style={[styles.containerLeft, style]}>
+        {showTopBar ? (
+          <View style={styles.topBar}>
+            {onBack ? (
+              <IconButton
+                icon="chevron-back"
+                onPress={onBack}
+                accessibilityLabel={backAccessibilityLabel}
+              />
+            ) : (
+              <View />
+            )}
+            {right ? <View style={styles.right}>{right}</View> : null}
+          </View>
+        ) : null}
+        {eyebrow ? (
+          <Text style={styles.eyebrow} numberOfLines={1}>
+            {eyebrow}
+          </Text>
+        ) : null}
+        <Text style={styles.titleLeft} accessibilityRole="header">
+          {title}
+        </Text>
+        {subtitle ? <Text style={styles.subtitleLeft}>{subtitle}</Text> : null}
+      </View>
+    );
+  }
+
+  const hasSideWidget = Boolean(onBack) || Boolean(right);
 
   return (
-    <View style={[styles.container, style]}>
-      {showTopBar ? (
-        <View style={styles.topBar}>
+    <View style={[styles.containerCenter, style]}>
+      <View style={styles.centerBar}>
+        <View style={styles.sideSlotLeft}>
           {onBack ? (
             <IconButton
               icon="chevron-back"
               onPress={onBack}
               accessibilityLabel={backAccessibilityLabel}
             />
-          ) : (
-            <View />
-          )}
-          {right ? <View style={styles.right}>{right}</View> : null}
+          ) : hasSideWidget ? (
+            <View style={styles.sideSpacer} />
+          ) : null}
         </View>
-      ) : null}
-      {eyebrow ? (
-        <Text style={styles.eyebrow} numberOfLines={1}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text style={styles.title} accessibilityRole="header">
-        {title}
-      </Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+
+        <View style={styles.centerTitleWrap}>
+          {eyebrow ? (
+            <Text style={styles.eyebrowCenter} numberOfLines={1}>
+              {eyebrow}
+            </Text>
+          ) : null}
+          <Text style={styles.titleCenter} accessibilityRole="header" numberOfLines={2}>
+            {title}
+          </Text>
+        </View>
+
+        <View style={styles.sideSlotRight}>
+          {right ? right : hasSideWidget ? <View style={styles.sideSpacer} /> : null}
+        </View>
+      </View>
+
+      {subtitle ? <Text style={styles.subtitleCenter}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -109,7 +150,54 @@ export function IconButton({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  containerCenter: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  centerBar: {
+    minHeight: sizes.touchMin,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  sideSlotLeft: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  sideSlotRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  sideSpacer: {
+    width: sizes.touchMin,
+    height: sizes.touchMin,
+  },
+  centerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyebrowCenter: {
+    ...typography.captionStrong,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  titleCenter: {
+    ...typography.subtitle,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.ink,
+    textAlign: 'center',
+  },
+  subtitleCenter: {
+    ...typography.bodyLg,
+    color: colors.slateText,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  containerLeft: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
   },
@@ -117,7 +205,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   right: {
     flexDirection: 'row',
@@ -130,10 +218,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: spacing.xs,
   },
-  title: {
+  titleLeft: {
     ...typography.title,
   },
-  subtitle: {
+  subtitleLeft: {
     ...typography.bodyLg,
     color: colors.slateText,
     marginTop: spacing.xs,
@@ -154,4 +242,3 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
-

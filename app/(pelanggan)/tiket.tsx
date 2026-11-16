@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   useCancelTicket,
   useDeferTicket,
 } from '@/hooks/useCustomerQueue';
-import { useMyTicket } from '@/hooks/useMyTicket';
+import { formatWibHourMinute, useMyTicket } from '@/hooks/useMyTicket';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { theme } from '@/lib/theme';
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Icon,
+  PillStatus,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+  TicketCard,
+  Timeline,
+} from '@/components/ui';
 
 export default function TiketPelangganScreen() {
   const router = useRouter();
@@ -80,45 +84,55 @@ export default function TiketPelangganScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.mutedText}>Memuat posisi antrean Anda...</Text>
-      </View>
+      <Screen header={<ScreenHeader title="Antrean Saya" />}>
+        <View style={styles.skeletonStack} accessibilityLabel="Memuat posisi antrean">
+          <Card style={styles.skeletonCard}>
+            <Skeleton width="60%" height={20} />
+            <Skeleton width="100%" height={120} radius={theme.radii.tile} />
+            <Skeleton width="100%" height={56} radius={theme.radii.button} />
+          </Card>
+          <Card style={styles.skeletonCard}>
+            <Skeleton width="45%" height={18} />
+            <Skeleton width="90%" height={16} />
+            <Skeleton width="85%" height={16} />
+            <Skeleton width="80%" height={16} />
+          </Card>
+        </View>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerBox}>
-        <View style={styles.card}>
-          <Text style={styles.errorTitle}>Gagal Memuat Tiket</Text>
-          <Text style={styles.errorBody}>
-            {getFriendlyErrorMessage(error)}
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-            ]}
-            onPress={() => {
+      <Screen header={<ScreenHeader title="Antrean Saya" />}>
+        {offlineBannerText ? (
+          <Banner
+            tone="warning"
+            icon="cloud-offline-outline"
+            message={offlineBannerText}
+            style={styles.topBanner}
+          />
+        ) : null}
+        <Card>
+          <EmptyState
+            illustration="empty"
+            title="Gagal Memuat Tiket"
+            description={getFriendlyErrorMessage(error)}
+            actionLabel="Coba Lagi"
+            onAction={() => {
               void refetch();
             }}
-            accessibilityRole="button"
-            accessibilityLabel="Coba muat ulang tiket antrean"
-          >
-            <Text style={styles.primaryButtonText}>Coba Lagi</Text>
-          </Pressable>
-        </View>
-      </View>
+          />
+        </Card>
+      </Screen>
     );
   }
 
   // 1. KONDISI TIDAK PUNYA TIKET
   if (!ticket) {
     return (
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollCenterContent}
+      <Screen
+        header={<ScreenHeader title="Antrean Saya" />}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -130,30 +144,25 @@ export default function TiketPelangganScreen() {
         }
       >
         {offlineBannerText ? (
-          <View style={styles.offlineBanner}>
-            <Text style={styles.offlineBannerText}>{offlineBannerText}</Text>
-          </View>
+          <Banner
+            tone="warning"
+            icon="cloud-offline-outline"
+            message={offlineBannerText}
+            style={styles.topBanner}
+          />
         ) : null}
 
-        <View style={styles.card}>
-          <Text style={styles.emptyTitle}>Belum Ada Tiket Aktif</Text>
-          <Text style={styles.emptySubtitle}>
-            Anda belum memiliki nomor antrean aktif saat ini. Pilih usaha di
-            Beranda untuk mengambil nomor dari rumah.
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-            ]}
-            onPress={() => router.navigate('/(pelanggan)')}
-            accessibilityRole="button"
-            accessibilityLabel="Kembali ke Beranda untuk memilih usaha"
-          >
-            <Text style={styles.primaryButtonText}>Ke Beranda</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+        <Card style={styles.emptyCardWrap}>
+          <EmptyState
+            illustration="empty"
+            illustrationSize={152}
+            title="Belum ada antrean"
+            description="Cari usaha dan ambil nomor antrean sekarang dari rumah tanpa perlu menunggu di lokasi."
+            actionLabel="Cari Usaha"
+            onAction={() => router.navigate('/(pelanggan)')}
+          />
+        </Card>
+      </Screen>
     );
   }
 
@@ -164,10 +173,27 @@ export default function TiketPelangganScreen() {
   const isExpired = ticket.ticketStatus === 'expired';
   const isDeferLimitReached = ticket.deferCount >= 2;
 
+  const pillStatus: PillStatus = isCalled
+    ? 'called'
+    : isApproaching
+      ? 'almost'
+      : isNoShow
+        ? 'no_show'
+        : isExpired
+          ? 'expired'
+          : 'waiting';
+
+  const activeTimelineStep = isCalled
+    ? 3
+    : isApproaching
+      ? 2
+      : isWaiting
+        ? 1
+        : 0;
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+    <Screen
+      header={<ScreenHeader title="Antrean Saya" />}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching}
@@ -178,520 +204,248 @@ export default function TiketPelangganScreen() {
         />
       }
     >
-      {offlineBannerText ? (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>{offlineBannerText}</Text>
-        </View>
-      ) : null}
-
-      <View
-        style={[
-          styles.card,
-          isApproaching && styles.cardApproaching,
-          isCalled && styles.cardCalled,
-          (isNoShow || isExpired) && styles.cardCancelled,
-        ]}
-      >
-        <Text style={styles.businessName}>{ticket.businessName}</Text>
-
-        {/* BADGE STATUS */}
-        <View
-          style={[
-            styles.statusBadge,
-            isCalled
-              ? styles.badgeCalled
-              : isApproaching
-                ? styles.badgeApproaching
-                : isNoShow || isExpired
-                  ? styles.badgeCancelled
-                  : styles.badgeWaiting,
-          ]}
-        >
-          <Text
-            style={[
-              styles.statusBadgeText,
-              isCalled
-                ? styles.badgeCalledText
-                : isApproaching
-                  ? styles.badgeApproachingText
-                  : isNoShow || isExpired
-                    ? styles.badgeCancelledText
-                    : styles.badgeWaitingText,
-            ]}
-          >
-            {isCalled
-              ? 'Dipanggil'
-              : isApproaching
-                ? 'Hampir Giliran Anda'
-                : isNoShow
-                  ? 'Tiket Hangus (Tidak Hadir)'
-                  : isExpired
-                    ? 'Antrean Ditutup'
-                    : 'Menunggu Giliran'}
-          </Text>
-        </View>
-
-        {/* ANGKA TIKET JUMBO */}
-        <View style={styles.ticketNumberBox}>
-          <Text style={styles.ticketNumberLabel}>Nomor Antrean Anda</Text>
-          <Text style={styles.ticketNumberValue}>{ticket.ticketNumber}</Text>
-        </View>
-
-        {actionError ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{actionError}</Text>
-          </View>
+      <View style={styles.contentStack}>
+        {/* Banner Offline Tipis */}
+        {offlineBannerText ? (
+          <Banner
+            tone="warning"
+            icon="cloud-offline-outline"
+            message={offlineBannerText}
+          />
         ) : null}
 
-        {/* 2 & 3. KONDISI MENUNGGU / HAMPIR GILIRAN (ahead <= 2) */}
-        {isWaiting ? (
-          <>
-            <View
-              style={[
-                styles.highlightBox,
-                isApproaching && styles.highlightBoxApproaching,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.aheadTitle,
-                  isApproaching && styles.aheadTitleApproaching,
-                ]}
-              >
-                {ticket.ahead} orang di depan Anda
-              </Text>
-              <Text style={styles.estText}>
-                Estimasi tunggu:{' '}
-                {ticket.estMinutes <= 0
-                  ? 'Sebentar lagi'
-                  : `± ${ticket.estMinutes} menit`}
-              </Text>
-            </View>
-
-            <View style={styles.metricsRow}>
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Sedang Dilayani</Text>
-                <Text style={styles.metricValue}>{ticket.currentNumber}</Text>
-              </View>
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Sisa Kuota Tunda</Text>
-                <Text style={styles.metricValue}>{2 - ticket.deferCount}x</Text>
-              </View>
-            </View>
-
-            {isDeferLimitReached ? (
-              <Text style={styles.deferLimitNote}>
-                Batas undur giliran (maksimal 2 kali) sudah tercapai untuk tiket ini.
-              </Text>
-            ) : null}
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.deferButton,
-                (isDeferLimitReached || isMutating) &&
-                  styles.deferButtonDisabled,
-                pressed &&
-                  !isDeferLimitReached &&
-                  !isMutating &&
-                  styles.deferButtonPressed,
-              ]}
-              onPress={() => {
-                void handleDefer(ticket.ticketId);
-              }}
-              disabled={isDeferLimitReached || isMutating}
-              accessibilityRole="button"
-              accessibilityLabel="Saya butuh waktu untuk mengundur giliran"
-            >
-              {deferMutation.isPending ? (
-                <ActivityIndicator color={theme.colors.primary} />
-              ) : (
-                <Text
-                  style={[
-                    styles.deferButtonText,
-                    (isDeferLimitReached || isMutating) &&
-                      styles.deferButtonTextDisabled,
-                  ]}
-                >
-                  Saya butuh waktu
-                </Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.cancelButton,
-                isMutating && styles.buttonDisabled,
-                pressed && !isMutating && styles.cancelButtonPressed,
-              ]}
-              onPress={() => handleConfirmCancel(ticket.ticketId)}
-              disabled={isMutating}
-              accessibilityRole="button"
-              accessibilityLabel="Batalkan tiket antrean"
-            >
-              {cancelMutation.isPending ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.cancelButtonText}>Batalkan</Text>
-              )}
-            </Pressable>
-          </>
+        {/* Banner Peringatan Hampir Giliran */}
+        {isApproaching ? (
+          <Banner
+            tone="warning"
+            icon="hourglass-outline"
+            title="Giliran hampir tiba, bersiaplah"
+            message={`Tersisa ${ticket.ahead} orang di depan Anda. Pastikan Anda sudah berada di sekitar lokasi usaha.`}
+          />
         ) : null}
 
-        {/* 4. KONDISI DIPANGGIL */}
+        {/* Kartu Penekanan Sukses Saat Dipanggil */}
         {isCalled ? (
-          <View style={styles.calledBanner}>
-            <Text style={styles.calledBannerTitle}>
-              Giliran Anda! Datang dalam {ticket.graceMinutes} menit
-            </Text>
-            <Text style={styles.calledBannerSub}>
-              Silakan segera menuju loket layanan sebelum masa tunggu berakhir.
-            </Text>
+          <View
+            style={styles.calledHeroCard}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLabel={`Giliran Anda! Datang dalam ${ticket.graceMinutes} menit`}
+          >
+            <View style={styles.calledIconBadge}>
+              <Icon
+                name="megaphone"
+                size={24}
+                color={theme.colors.status.called.text}
+              />
+            </View>
+            <View style={styles.calledTexts}>
+              <Text style={styles.calledHeroTitle}>Giliran Anda!</Text>
+              <Text style={styles.calledHeroSub}>
+                Datang dalam {ticket.graceMinutes} menit ke loket layanan{' '}
+                {ticket.businessName} sebelum masa tunggu berakhir.
+              </Text>
+            </View>
           </View>
         ) : null}
 
-        {/* 5. KONDISI TIDAK HADIR (NO_SHOW) */}
-        {isNoShow ? (
-          <View style={styles.terminalBox}>
-            <Text style={styles.terminalText}>
-              Tiket Anda telah hangus karena masa tunggu panggilan telah lewat.
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (!isOnline || isOfflineMode) && styles.buttonDisabled,
-                pressed && isOnline && !isOfflineMode && styles.primaryButtonPressed,
-              ]}
-              disabled={!isOnline || isOfflineMode}
-              onPress={() =>
-                router.push({
-                  pathname: '/(pelanggan)/usaha/[id]',
-                  params: { id: ticket.businessId },
-                })
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Ambil nomor antrean lagi"
-            >
-              <Text style={styles.primaryButtonText}>Ambil Nomor Lagi</Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {actionError ? <Banner tone="danger" message={actionError} /> : null}
 
-        {/* 6. KONDISI ANTREAN DITUTUP (EXPIRED) */}
-        {isExpired ? (
-          <View style={styles.terminalBox}>
-            <Text style={styles.terminalText}>
-              Sesi antrean usaha ini telah ditutup oleh pemilik usaha sehingga
-              tiket yang tersisa berakhir secara otomatis.
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-              ]}
-              onPress={() => router.navigate('/(pelanggan)')}
-              accessibilityRole="button"
-              accessibilityLabel="Kembali ke Beranda"
-            >
-              <Text style={styles.primaryButtonText}>Kembali ke Beranda</Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {/* Kartu Tiket Utama */}
+        <TicketCard
+          businessName={ticket.businessName}
+          ticketNumber={ticket.ticketNumber}
+          status={pillStatus}
+          ahead={ticket.ahead}
+          estMinutes={ticket.estMinutes}
+          currentNumber={ticket.currentNumber}
+          timeLabel={`${formatWibHourMinute(ticket.updatedAt)} WIB`}
+          deferQuotaLabel={
+            isWaiting
+              ? `Sisa tunda ${Math.max(0, 2 - ticket.deferCount)}x`
+              : undefined
+          }
+        >
+          {/* 2 & 3. KONDISI MENUNGGU / HAMPIR GILIRAN */}
+          {isWaiting ? (
+            <View style={styles.actionsBox}>
+              {isDeferLimitReached ? (
+                <View style={styles.deferLimitRow}>
+                  <Icon
+                    name="information-circle-outline"
+                    size={16}
+                    color={theme.colors.statusInk.approaching}
+                  />
+                  <Text style={styles.deferLimitNote}>
+                    Batas undur giliran (maksimal 2 kali) sudah tercapai untuk tiket ini.
+                  </Text>
+                </View>
+              ) : null}
+
+              <Button
+                label="Saya butuh waktu"
+                variant="secondary"
+                iconLeft="time-outline"
+                onPress={() => {
+                  void handleDefer(ticket.ticketId);
+                }}
+                loading={deferMutation.isPending}
+                disabled={isDeferLimitReached || isMutating}
+                accessibilityLabel="Saya butuh waktu untuk mengundur giliran"
+              />
+
+              <Button
+                label="Batalkan tiket"
+                variant="dangerGhost"
+                iconLeft="close-circle-outline"
+                onPress={() => handleConfirmCancel(ticket.ticketId)}
+                loading={cancelMutation.isPending}
+                disabled={isMutating}
+                accessibilityLabel="Batalkan tiket antrean"
+              />
+            </View>
+          ) : null}
+
+          {/* 5. KONDISI TIDAK HADIR (NO_SHOW) */}
+          {isNoShow ? (
+            <View style={styles.terminalBox}>
+              <Banner
+                tone="danger"
+                title="Tiket Hangus (Tidak Hadir)"
+                message="Tiket Anda telah hangus karena masa tunggu panggilan telah lewat."
+              />
+              <Button
+                label="Ambil Nomor Lagi"
+                size="l"
+                iconLeft="refresh"
+                disabled={!isOnline || isOfflineMode}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(pelanggan)/usaha/[id]',
+                    params: { id: ticket.businessId },
+                  })
+                }
+                accessibilityLabel="Ambil nomor antrean lagi"
+              />
+            </View>
+          ) : null}
+
+          {/* 6. KONDISI ANTREAN DITUTUP (EXPIRED) */}
+          {isExpired ? (
+            <View style={styles.terminalBox}>
+              <Banner
+                tone="warning"
+                title="Antrean Ditutup"
+                message="Sesi antrean usaha ini telah ditutup oleh pemilik usaha sehingga tiket yang tersisa berakhir secara otomatis."
+              />
+              <Button
+                label="Kembali ke Beranda"
+                size="l"
+                iconLeft="home-outline"
+                onPress={() => router.navigate('/(pelanggan)')}
+                accessibilityLabel="Kembali ke Beranda"
+              />
+            </View>
+          ) : null}
+        </TicketCard>
+
+        {/* Timeline Posisi Antrean */}
+        <Timeline
+          activeStep={activeTimelineStep}
+          activeSubtext={
+            isCalled
+              ? `Segera menuju loket dalam ${ticket.graceMinutes} menit.`
+              : isApproaching
+                ? `Tersisa ${ticket.ahead} orang di depan Anda.`
+                : isWaiting
+                  ? `${ticket.ahead} orang di depan Anda • estimasi ${
+                      ticket.estMinutes <= 0
+                        ? 'sebentar lagi'
+                        : `± ${ticket.estMinutes} menit`
+                    }.`
+                  : undefined
+          }
+        />
+
+        <Text style={styles.pullHint}>
+          Tarik layar ke bawah untuk memuat ulang posisi
+        </Text>
       </View>
-
-      <Text style={styles.pullHint}>Tarik layar ke bawah untuk memuat ulang posisi</Text>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
-  },
-  offlineBanner: {
-    width: '100%',
-    backgroundColor: theme.colors.status.approaching.background,
-    borderWidth: 1,
-    borderColor: theme.colors.status.approaching.text,
-    borderRadius: theme.radii.card,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    alignItems: 'center',
-  },
-  offlineBannerText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.approaching.text,
-    textAlign: 'center',
-  },
-  scrollCenterContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-  },
-  centerBox: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  mutedText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.sm,
-    textAlign: 'center',
-  },
-  card: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  cardApproaching: {
-    borderColor: theme.colors.status.approaching.text,
-    borderWidth: 2,
-  },
-  cardCalled: {
-    backgroundColor: theme.colors.status.called.background,
-    borderColor: theme.colors.status.called.text,
-    borderWidth: 2,
-  },
-  cardCancelled: {
-    borderColor: theme.colors.status.cancelled.text,
-  },
-  businessName: {
-    ...theme.typography.heading,
-    textAlign: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-    marginBottom: theme.spacing.lg,
-  },
-  badgeWaiting: {
-    backgroundColor: theme.colors.status.waiting.background,
-  },
-  badgeApproaching: {
-    backgroundColor: theme.colors.status.approaching.background,
-  },
-  badgeCalled: {
-    backgroundColor: theme.colors.status.called.text,
-  },
-  badgeCancelled: {
-    backgroundColor: theme.colors.status.cancelled.background,
-  },
-  statusBadgeText: {
-    ...theme.typography.bodyBold,
-  },
-  badgeWaitingText: {
-    color: theme.colors.status.waiting.text,
-  },
-  badgeApproachingText: {
-    color: theme.colors.status.approaching.text,
-  },
-  badgeCalledText: {
-    color: theme.colors.surface,
-  },
-  badgeCancelledText: {
-    color: theme.colors.status.cancelled.text,
-  },
-  ticketNumberBox: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  ticketNumberLabel: {
-    ...theme.typography.caption,
-    marginBottom: theme.spacing.xs,
-  },
-  ticketNumberValue: {
-    ...theme.typography.displayTicket,
-  },
-  highlightBox: {
-    width: '100%',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.card,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
+  topBanner: {
     marginBottom: theme.spacing.md,
   },
-  highlightBoxApproaching: {
-    backgroundColor: theme.colors.status.approaching.background,
+  emptyCardWrap: {
+    marginTop: theme.spacing.md,
   },
-  aheadTitle: {
-    ...theme.typography.subheading,
-    marginBottom: 4,
+  skeletonStack: {
+    gap: theme.spacing.lg,
   },
-  aheadTitleApproaching: {
-    color: theme.colors.status.approaching.text,
-  },
-  estText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-  },
-  metricsRow: {
-    width: '100%',
-    flexDirection: 'row',
+  skeletonCard: {
     gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
   },
-  metricItem: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  contentStack: {
+    gap: theme.spacing.lg,
+  },
+  calledHeroCard: {
+    backgroundColor: theme.colors.status.called.background,
     borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
+    borderWidth: 2,
+    borderColor: theme.colors.status.called.text,
+    padding: theme.spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: theme.spacing.md,
   },
-  metricLabel: {
-    ...theme.typography.caption,
-    marginBottom: 4,
+  calledIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  metricValue: {
-    ...theme.typography.heading,
+  calledTexts: {
+    flex: 1,
+    gap: 2,
+  },
+  calledHeroTitle: {
+    ...theme.typography.title,
+    fontSize: 22,
+    lineHeight: 28,
+    color: theme.colors.statusInk.called,
+  },
+  calledHeroSub: {
+    ...theme.typography.body,
+    color: theme.colors.ink,
+  },
+  actionsBox: {
+    gap: theme.spacing.sm,
+  },
+  deferLimitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs + 2,
+    backgroundColor: theme.colors.status.approaching.background,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.sm,
   },
   deferLimitNote: {
     ...theme.typography.caption,
-    color: theme.colors.status.approaching.text,
-    textAlign: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  deferButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-  deferButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  deferButtonDisabled: {
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  deferButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-  },
-  deferButtonTextDisabled: {
-    color: theme.colors.textMuted,
-  },
-  cancelButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    borderRadius: theme.radii.card,
-    backgroundColor: theme.colors.status.cancelled.text,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  cancelButtonPressed: {
-    opacity: 0.85,
-  },
-  cancelButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  calledBanner: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.status.called.text,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  calledBannerTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.called.text,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  calledBannerSub: {
-    ...theme.typography.body,
-    textAlign: 'center',
+    color: theme.colors.statusInk.approaching,
+    flex: 1,
   },
   terminalBox: {
-    width: '100%',
-    alignItems: 'center',
     gap: theme.spacing.md,
-  },
-  terminalText: {
-    ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    textAlign: 'center',
-  },
-  emptyTitle: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.sm,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-  },
-  primaryButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  primaryButtonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  primaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  errorBox: {
-    width: '100%',
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-    textAlign: 'center',
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorBody: {
-    ...theme.typography.body,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
   },
   pullHint: {
     ...theme.typography.caption,
     textAlign: 'center',
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.xs,
   },
 });

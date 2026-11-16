@@ -52,7 +52,16 @@ export const colors = {
   onInk: palette.canvas,
   onInkSecondary: 'rgba(237, 242, 244, 0.78)',
   danger: '#DC2626',
+  dangerBorderSoft: 'rgba(220, 38, 38, 0.22)',
+  onPrimaryTranslucent: 'rgba(255, 255, 255, 0.18)',
   overlay: 'rgba(43, 45, 66, 0.45)',
+
+  statusBorder: {
+    info: 'rgba(50, 109, 218, 0.18)',
+    warning: 'rgba(217, 119, 6, 0.22)',
+    success: 'rgba(5, 150, 105, 0.2)',
+    danger: 'rgba(220, 38, 38, 0.2)',
+  },
 
   // Varian teks status yang lebih gelap untuk teks kecil (kontras >= 4.5:1).
   // Warna status di atas tetap dipakai untuk ikon dan aksen.

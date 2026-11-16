@@ -1,6 +1,7 @@
 /**
  * Screen — kerangka layar: area aman, latar canvas, scroll opsional,
- * penanganan keyboard, slot header tetap dan footer menempel di bawah.
+ * penanganan keyboard, transisi masuk 200 ms (hormati reduce motion),
+ * slot header tetap dan footer menempel di bawah.
  *
  * Contoh:
  *   <Screen header={<ScreenHeader title="Masuk" />}
@@ -25,7 +26,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Edge, SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing } from '@/lib/theme';
+import { colors, shadows, spacing } from '@/lib/theme';
+import { FadeInView } from './FadeInView';
 
 export interface ScreenProps {
   children: ReactNode;
@@ -77,10 +79,12 @@ export function Screen({
             showsVerticalScrollIndicator={false}
             refreshControl={refreshControl}
           >
-            {children}
+            <FadeInView style={styles.fadeFill}>{children}</FadeInView>
           </ScrollView>
         ) : (
-          <View style={[styles.flex, paddingStyle, contentContainerStyle]}>{children}</View>
+          <FadeInView style={[styles.flex, paddingStyle, contentContainerStyle]}>
+            {children}
+          </FadeInView>
         )}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
@@ -95,6 +99,9 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  fadeFill: {
+    flexGrow: 1,
+  },
   padded: {
     paddingHorizontal: spacing.screen,
     paddingTop: spacing.sm,
@@ -107,10 +114,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.screen,
   },
   footer: {
+    backgroundColor: colors.white,
     paddingHorizontal: spacing.screen,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
     gap: spacing.sm,
+    ...shadows.soft,
   },
 });
-

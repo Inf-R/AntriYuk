@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Pressable,
+  Animated,
+  Easing,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useMyBusiness } from '@/hooks/useMyBusiness';
 import { useOnline } from '@/hooks/useOnline';
 import {
@@ -27,6 +27,23 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES } from '@/lib/validation';
 import { theme } from '@/lib/theme';
+import {
+  Banner,
+  Button,
+  Card,
+  CategoryTile,
+  EmptyState,
+  FadeInView,
+  Icon,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+  StatTile,
+  StatusPill,
+  useReducedMotion,
+} from '@/components/ui';
+
+const HERO_OVERLAP = 32;
 
 function formatCountdown(remainingSeconds: number): string {
   const safeSeconds = Math.max(0, remainingSeconds);
@@ -36,8 +53,10 @@ function formatCountdown(remainingSeconds: number): string {
 }
 
 export default function KelolaAntreanDashboardScreen() {
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isOnline } = useOnline();
+  const reduceMotion = useReducedMotion();
+
   const {
     data: business,
     isLoading: businessLoading,
@@ -77,6 +96,28 @@ export default function KelolaAntreanDashboardScreen() {
   const hasCalled = calledTicket !== null;
   const hasWaiting = waitingTickets.length > 0;
 
+  const currentNumber = todaySession?.current_number ?? 0;
+  const numberScale = useRef(new Animated.Value(1)).current;
+  const prevNumberRef = useRef<number>(currentNumber);
+
+  // Animasi halus saat angka Sedang Dilayani berubah (hormati reduce motion)
+  useEffect(() => {
+    if (prevNumberRef.current !== currentNumber) {
+      prevNumberRef.current = currentNumber;
+      if (reduceMotion) {
+        numberScale.setValue(1);
+        return;
+      }
+      numberScale.setValue(0.92);
+      Animated.timing(numberScale, {
+        toValue: 1,
+        duration: theme.motion.base,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [currentNumber, numberScale, reduceMotion]);
+
   // Penghitung mundur dari called_at + grace_minutes (hanya tampilan)
   useEffect(() => {
     if (!calledTicket?.called_at) {
@@ -99,48 +140,54 @@ export default function KelolaAntreanDashboardScreen() {
 
   if (businessLoading || sessionLoading || queueLoading) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Memuat dasbor antrean...</Text>
-      </SafeAreaView>
+      <Screen header={<ScreenHeader title="Kelola Antrean" />}>
+        <StatusBar style="dark" />
+        <View style={styles.skeletonStack} accessibilityLabel="Memuat dasbor antrean">
+          <Card style={styles.skeletonCard}>
+            <Skeleton width="55%" height={18} />
+            <Skeleton width="40%" height={68} radius={theme.radii.tile} />
+            <Skeleton width="100%" height={56} radius={theme.radii.button} />
+          </Card>
+          <View style={styles.tilesRow}>
+            <Skeleton width="48%" height={96} radius={theme.radii.tile} />
+            <Skeleton width="48%" height={96} radius={theme.radii.tile} />
+          </View>
+          <Card style={styles.skeletonCard}>
+            <Skeleton width="50%" height={20} />
+            <Skeleton width="100%" height={56} radius={theme.radii.sm} />
+            <Skeleton width="100%" height={56} radius={theme.radii.sm} />
+          </Card>
+        </View>
+      </Screen>
     );
   }
 
   if (businessError || !business) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen header={<ScreenHeader title="Kelola Antrean" />}>
+        <StatusBar style="dark" />
         <OfflineBanner />
-        <View style={styles.centeredContainer}>
-          <View style={styles.card}>
-            <Text style={styles.errorTitle}>Gagal Memuat Dasbor</Text>
-            <Text style={styles.errorText}>
-              {businessError
+        <Card>
+          <EmptyState
+            illustration="empty"
+            title="Gagal Memuat Dasbor"
+            description={
+              businessError
                 ? getFriendlyErrorMessage(businessError)
-                : 'Data usaha belum tersedia.'}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.openButton,
-                styles.retryButtonMargin,
-                pressed && styles.openButtonPressed,
-              ]}
-              onPress={() => {
-                void refetchBusiness();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang data usaha"
-            >
-              <Text style={styles.primaryButtonText}>Coba Lagi</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+                : 'Data usaha belum tersedia.'
+            }
+            actionLabel="Coba Lagi"
+            onAction={() => {
+              void refetchBusiness();
+            }}
+          />
+        </Card>
+      </Screen>
     );
   }
 
   const isQueueOpen =
     todaySession?.status === 'open' && business.is_queue_open;
-  const currentNumber = todaySession?.current_number ?? 0;
   const lastNumber = todaySession?.last_number ?? 0;
   const waitingCount = todaySession?.waiting_count ?? 0;
 
@@ -263,10 +310,12 @@ export default function KelolaAntreanDashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <OfflineBanner />
+    <View style={styles.root}>
+      <StatusBar style="light" />
       <ScrollView
+        style={styles.flex}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -277,753 +326,567 @@ export default function KelolaAntreanDashboardScreen() {
           />
         }
       >
-        {/* 1. KARTU HEADER USAHA, METRIK, DAN BUKA/TUTUP ANTREAN */}
-        <View style={styles.card}>
-          <View style={styles.headerRow}>
-            <View style={styles.businessInfo}>
-              <Text style={styles.businessName}>{business.name}</Text>
-              <Text style={styles.categoryText}>
+        {/* 1. HEADER GELAP SOLID (#2B2D42) */}
+        <View
+          style={[
+            styles.headerDark,
+            { paddingTop: insets.top + theme.spacing.md },
+          ]}
+        >
+          <View style={styles.headerTopRow}>
+            <CategoryTile
+              category={business.category}
+              size={48}
+              iconSize={24}
+            />
+            <View style={styles.headerTexts}>
+              <Text
+                style={styles.businessName}
+                numberOfLines={1}
+                accessibilityRole="header"
+              >
+                {business.name}
+              </Text>
+              <Text style={styles.categoryAddress} numberOfLines={1}>
                 {categoryLabel}
                 {business.address ? ` • ${business.address}` : ''}
               </Text>
             </View>
-
-            <View
-              style={[
-                styles.statusPill,
-                isQueueOpen ? styles.statusOpenPill : styles.statusClosedPill,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusPillText,
-                  isQueueOpen
-                    ? styles.statusOpenText
-                    : styles.statusClosedText,
-                ]}
-              >
-                {isQueueOpen ? 'Buka' : 'Tutup'}
-              </Text>
-            </View>
+            <StatusPill status={isQueueOpen ? 'open' : 'closed'} />
           </View>
-
-          {sessionError || queueError ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>
-                {getFriendlyErrorMessage(sessionError ?? queueError)}
-              </Text>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.inlineRetryButton,
-                  pressed && styles.inlineRetryButtonPressed,
-                ]}
-                onPress={() => {
-                  void handleRefreshAll();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Coba muat ulang data antrean"
-              >
-                <Text style={styles.inlineRetryButtonText}>Coba Lagi</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {actionError ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{actionError}</Text>
-            </View>
-          ) : null}
-
-          {/* METRIK UTAMA: NOMOR SEDANG DILAYANI (JUMBO) */}
-          <View style={styles.heroMetricBox}>
-            <Text style={styles.heroMetricLabel}>Nomor Sedang Dilayani</Text>
-            <Text style={styles.heroMetricValue}>{currentNumber}</Text>
-          </View>
-
-          {/* METRIK SEKUNDER: NOMOR TERAKHIR & JUMLAH MENUNGGU */}
-          <View style={styles.secondaryMetricsRow}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Nomor Terakhir</Text>
-              <Text style={styles.metricNumber}>{lastNumber}</Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Jumlah Menunggu</Text>
-              <Text style={styles.metricNumber}>{waitingCount}</Text>
-            </View>
-          </View>
-
-          {/* TOMBOL AKSI BUKA / TUTUP ANTREAN */}
-          {!isQueueOpen ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.openButton,
-                pressed && !isMutating && styles.openButtonPressed,
-                isMutating && styles.buttonDisabled,
-              ]}
-              onPress={() => {
-                void handleOpenQueue();
-              }}
-              disabled={isMutating}
-              accessibilityRole="button"
-              accessibilityLabel="Buka antrean usaha hari ini"
-            >
-              {openQueueMutation.isPending ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.primaryButtonText}>Buka antrean</Text>
-              )}
-            </Pressable>
-          ) : (
-            <Pressable
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed && !isMutating && styles.closeButtonPressed,
-                isMutating && styles.buttonDisabled,
-              ]}
-              onPress={handleConfirmCloseQueue}
-              disabled={isMutating}
-              accessibilityRole="button"
-              accessibilityLabel="Tutup antrean usaha hari ini"
-            >
-              {closeQueueMutation.isPending ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.primaryButtonText}>Tutup antrean</Text>
-              )}
-            </Pressable>
-          )}
         </View>
 
-        {/* 2. KARTU "SEDANG DIPANGGIL" DENGAN PENGHITUNG MUNDUR */}
-        {calledTicket ? (
-          <View
-            style={[
-              styles.calledCard,
-              isGraceExpired
-                ? styles.calledCardExpired
-                : styles.calledCardActive,
-            ]}
-          >
-            <View style={styles.calledHeaderRow}>
+        <FadeInView style={styles.bodyContent}>
+          {/* 2. KARTU HERO NOMOR ANTREAN SAAT INI */}
+          <Card style={styles.heroCard}>
+            <Text style={styles.heroLabel}>Nomor Antrean Saat Ini</Text>
+            <Animated.View style={{ transform: [{ scale: numberScale }] }}>
               <Text
-                style={[
-                  styles.calledSectionLabel,
-                  isGraceExpired
-                    ? styles.calledTextExpired
-                    : styles.calledTextActive,
-                ]}
+                style={styles.heroNumber}
+                accessibilityRole="header"
+                accessibilityLabel={`Nomor sedang dilayani ${currentNumber}`}
               >
-                Sedang dipanggil
+                {currentNumber}
               </Text>
-              <View
-                style={[
-                  styles.timerBadge,
-                  isGraceExpired
-                    ? styles.timerBadgeExpired
-                    : styles.timerBadgeActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timerBadgeText,
-                    isGraceExpired
-                      ? styles.timerBadgeTextExpired
-                      : styles.timerBadgeTextActive,
-                  ]}
-                >
-                  {isGraceExpired
-                    ? `00:00 • Waktu Habis`
-                    : `Sisa ${formatCountdown(remainingSeconds)}`}
-                </Text>
-              </View>
-            </View>
+            </Animated.View>
 
-            <View style={styles.calledMainRow}>
-              <Text
-                style={[
-                  styles.calledNumber,
-                  isGraceExpired
-                    ? styles.calledTextExpired
-                    : styles.calledTextActive,
-                ]}
-              >
-                #{calledTicket.number}
-              </Text>
-              <View style={styles.calledCustomerBlock}>
-                <Text style={styles.calledCustomerName}>
-                  {calledTicket.display_name}
-                </Text>
-                <Text
-                  style={[
-                    styles.calledSubtext,
-                    isGraceExpired && styles.calledTextExpired,
-                  ]}
-                >
-                  {isGraceExpired
-                    ? `Batas tunggu ${business.grace_minutes} menit telah terlampaui`
-                    : `Batas kedatangan ${business.grace_minutes} menit sejak dipanggil`}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 3. KARTU KONTROL PANGGILAN ANTREAN (TOMBOL JUMBO SATU TANGAN) */}
-        {isQueueOpen ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Kontrol Panggilan</Text>
-
-            {emptyQueueNotice ? (
-              <View style={styles.emptyNoticeBox}>
-                <Text style={styles.emptyNoticeText}>{emptyQueueNotice}</Text>
-              </View>
-            ) : null}
-
-            {/* KONDISI A: Belum ada yang dipanggil */}
-            {!hasCalled ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.jumboActionButton,
-                  styles.callNextPrimaryButton,
-                  pressed && !isMutating && styles.callNextPrimaryPressed,
-                  isMutating && styles.buttonDisabled,
-                ]}
+            {!isQueueOpen ? (
+              <Button
+                label="Buka antrean"
+                size="xl"
+                iconLeft="play"
+                onPress={() => {
+                  void handleOpenQueue();
+                }}
+                loading={openQueueMutation.isPending}
+                disabled={isMutating}
+                accessibilityLabel="Buka antrean usaha hari ini"
+                style={styles.heroActionBtn}
+              />
+            ) : !hasCalled ? (
+              <Button
+                label="Panggil Berikutnya"
+                size="xl"
+                iconRight="arrow-forward"
                 onPress={() => {
                   void handleCallNext('done');
                 }}
+                loading={callNextMutation.isPending}
                 disabled={isMutating}
-                accessibilityRole="button"
                 accessibilityLabel="Panggil nomor antrean berikutnya"
-              >
-                {callNextMutation.isPending ? (
-                  <ActivityIndicator color={theme.colors.surface} />
-                ) : (
-                  <Text style={styles.jumboActionButtonText}>
-                    Panggil berikutnya
-                  </Text>
-                )}
-              </Pressable>
+                style={styles.heroActionBtn}
+              />
             ) : null}
+          </Card>
 
-            {/* KONDISI B: Ada yang dipanggil dan masih ada yang menunggu */}
-            {hasCalled && hasWaiting ? (
-              <View style={styles.actionButtonsStack}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.jumboActionButton,
-                    styles.doneNextButton,
-                    pressed && !isMutating && styles.doneNextButtonPressed,
-                    isMutating && styles.buttonDisabled,
-                  ]}
-                  onPress={() => {
-                    void handleCallNext('done');
-                  }}
-                  disabled={isMutating}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tandai selesai dan panggil berikutnya"
-                >
-                  {callNextMutation.isPending ? (
-                    <ActivityIndicator color={theme.colors.surface} />
-                  ) : (
-                    <Text style={styles.jumboActionButtonText}>
-                      Selesai, panggil berikutnya
-                    </Text>
-                  )}
-                </Pressable>
+          <OfflineBanner />
 
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.jumboActionButton,
-                    styles.noShowNextButton,
-                    pressed && !isMutating && styles.noShowNextButtonPressed,
-                    isMutating && styles.buttonDisabled,
-                  ]}
-                  onPress={() => {
-                    void handleCallNext('no_show');
-                  }}
-                  disabled={isMutating}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tandai tidak hadir dan panggil berikutnya"
-                >
-                  {callNextMutation.isPending ? (
-                    <ActivityIndicator color={theme.colors.surface} />
-                  ) : (
-                    <Text style={styles.jumboActionButtonText}>
-                      Tidak hadir, panggil berikutnya
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-            ) : null}
+          {sessionError || queueError ? (
+            <Banner
+              tone="danger"
+              title="Gagal memuat data antrean"
+              message={getFriendlyErrorMessage(sessionError ?? queueError)}
+              actionLabel="Coba Lagi"
+              onAction={() => {
+                void handleRefreshAll();
+              }}
+            />
+          ) : null}
 
-            {/* KONDISI C: Ada yang dipanggil dan tidak ada yang menunggu */}
-            {hasCalled && !hasWaiting && calledTicket ? (
-              <View style={styles.actionButtonsStack}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.jumboActionButton,
-                    styles.doneNextButton,
-                    pressed && !isMutating && styles.doneNextButtonPressed,
-                    isMutating && styles.buttonDisabled,
-                  ]}
-                  onPress={() => {
-                    void handleFinishTicket(calledTicket.ticket_id);
-                  }}
-                  disabled={isMutating}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tandai tiket selesai"
-                >
-                  {finishTicketMutation.isPending ? (
-                    <ActivityIndicator color={theme.colors.surface} />
-                  ) : (
-                    <Text style={styles.jumboActionButtonText}>Selesai</Text>
-                  )}
-                </Pressable>
+          {actionError ? <Banner tone="danger" message={actionError} /> : null}
 
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.jumboActionButton,
-                    styles.noShowNextButton,
-                    pressed && !isMutating && styles.noShowNextButtonPressed,
-                    isMutating && styles.buttonDisabled,
-                  ]}
-                  onPress={() => {
-                    void handleMarkNoShow(calledTicket.ticket_id);
-                  }}
-                  disabled={isMutating}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tandai pelanggan tidak hadir"
-                >
-                  {markNoShowMutation.isPending ? (
-                    <ActivityIndicator color={theme.colors.surface} />
-                  ) : (
-                    <Text style={styles.jumboActionButtonText}>
-                      Tidak hadir
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
+          {emptyQueueNotice ? (
+            <Banner
+              tone="info"
+              icon="information-circle"
+              message={emptyQueueNotice}
+            />
+          ) : null}
 
-        {/* 4. DAFTAR ANTREAN AKTIF (DARI owner_queue) */}
-        <View style={styles.card}>
-          <View style={styles.queueHeaderRow}>
-            <Text style={styles.sectionTitle}>Daftar Antrean Aktif</Text>
-            <Text style={styles.queueCountText}>{queueItems.length} tiket</Text>
+          {/* 3. DUA STATTILE: NOMOR TERAKHIR & JUMLAH MENUNGGU */}
+          <View style={styles.tilesRow}>
+            <StatTile
+              label="Nomor Terakhir"
+              value={lastNumber}
+              variant="card"
+              icon="pricetag-outline"
+              iconTone="primary"
+            />
+            <StatTile
+              label="Jumlah Menunggu"
+              value={waitingCount}
+              variant="filledAccent"
+              icon="people-outline"
+            />
           </View>
 
-          {queueItems.length === 0 ? (
-            <View style={styles.emptyQueueBox}>
-              <Text style={styles.emptyQueueText}>
-                Tidak ada antrean menunggu
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.queueList}>
-              {queueItems.map((item) => {
-                const isItemCalled = item.status === 'called';
-                return (
-                  <View
-                    key={item.ticket_id}
+          {/* 4. KARTU "SEDANG DIPANGGIL" + TOMBOL KONTROL PANGGILAN */}
+          {isQueueOpen && calledTicket ? (
+            <Card
+              style={[
+                styles.calledCard,
+                isGraceExpired
+                  ? styles.calledCardExpired
+                  : styles.calledCardActive,
+              ]}
+            >
+              <View style={styles.calledHeaderRow}>
+                <View style={styles.calledLabelRow}>
+                  <Icon
+                    name="megaphone"
+                    size={18}
+                    color={
+                      isGraceExpired
+                        ? theme.colors.status.cancelled.text
+                        : theme.colors.status.called.text
+                    }
+                  />
+                  <Text
                     style={[
-                      styles.queueItemRow,
-                      isItemCalled && styles.queueItemRowCalled,
+                      styles.calledSectionLabel,
+                      isGraceExpired
+                        ? styles.calledTextExpired
+                        : styles.calledTextActive,
                     ]}
                   >
-                    <View style={styles.queueNumberBadge}>
-                      <Text style={styles.queueNumberText}>#{item.number}</Text>
-                    </View>
+                    Sedang dipanggil
+                  </Text>
+                </View>
 
-                    <View style={styles.queueItemInfo}>
-                      <Text style={styles.queueCustomerName} numberOfLines={1}>
-                        {item.display_name}
-                      </Text>
-                      <Text style={styles.queueTimeText}>
-                        Diambil pukul {formatWibTimeOnly(item.created_at)}
-                      </Text>
-                    </View>
+                <View
+                  style={[
+                    styles.timerBadge,
+                    isGraceExpired
+                      ? styles.timerBadgeExpired
+                      : styles.timerBadgeActive,
+                  ]}
+                >
+                  <Icon
+                    name="timer-outline"
+                    size={14}
+                    color={
+                      isGraceExpired
+                        ? theme.colors.statusInk.cancelled
+                        : theme.colors.statusInk.called
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.timerBadgeText,
+                      isGraceExpired
+                        ? styles.timerBadgeTextExpired
+                        : styles.timerBadgeTextActive,
+                    ]}
+                  >
+                    {isGraceExpired
+                      ? '00:00 • Waktu Habis'
+                      : `Sisa ${formatCountdown(remainingSeconds)}`}
+                  </Text>
+                </View>
+              </View>
 
+              <View style={styles.calledMainRow}>
+                <View
+                  style={[
+                    styles.calledNumberCircle,
+                    isGraceExpired
+                      ? styles.calledNumberCircleExpired
+                      : styles.calledNumberCircleActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.calledNumber,
+                      isGraceExpired
+                        ? styles.calledTextExpired
+                        : styles.calledTextActive,
+                    ]}
+                  >
+                    {calledTicket.number}
+                  </Text>
+                </View>
+
+                <View style={styles.calledCustomerBlock}>
+                  <Text style={styles.calledCustomerName}>
+                    {calledTicket.display_name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.calledSubtext,
+                      isGraceExpired ? styles.calledTextExpired : null,
+                    ]}
+                  >
+                    {isGraceExpired
+                      ? `Batas tunggu ${business.grace_minutes} menit telah terlampaui`
+                      : `Batas kedatangan ${business.grace_minutes} menit sejak dipanggil`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* KONDISI B: Ada yang dipanggil dan masih ada yang menunggu */}
+              {hasWaiting ? (
+                <View style={styles.actionButtonsStack}>
+                  <Button
+                    label="Selesai, panggil berikutnya"
+                    size="xl"
+                    variant="primary"
+                    iconLeft="checkmark-done"
+                    onPress={() => {
+                      void handleCallNext('done');
+                    }}
+                    loading={callNextMutation.isPending}
+                    disabled={isMutating}
+                    accessibilityLabel="Tandai selesai dan panggil berikutnya"
+                  />
+                  <Button
+                    label="Tidak hadir, panggil berikutnya"
+                    size="l"
+                    variant="dangerOutline"
+                    iconLeft="person-remove-outline"
+                    onPress={() => {
+                      void handleCallNext('no_show');
+                    }}
+                    loading={callNextMutation.isPending}
+                    disabled={isMutating}
+                    accessibilityLabel="Tandai tidak hadir dan panggil berikutnya"
+                  />
+                </View>
+              ) : (
+                /* KONDISI C: Ada yang dipanggil dan tidak ada yang menunggu */
+                <View style={styles.actionButtonsStack}>
+                  <Button
+                    label="Selesai"
+                    size="xl"
+                    variant="primary"
+                    iconLeft="checkmark-circle-outline"
+                    onPress={() => {
+                      void handleFinishTicket(calledTicket.ticket_id);
+                    }}
+                    loading={finishTicketMutation.isPending}
+                    disabled={isMutating}
+                    accessibilityLabel="Tandai tiket selesai"
+                  />
+                  <Button
+                    label="Tidak hadir"
+                    size="l"
+                    variant="dangerOutline"
+                    iconLeft="person-remove-outline"
+                    onPress={() => {
+                      void handleMarkNoShow(calledTicket.ticket_id);
+                    }}
+                    loading={markNoShowMutation.isPending}
+                    disabled={isMutating}
+                    accessibilityLabel="Tandai pelanggan tidak hadir"
+                  />
+                </View>
+              )}
+            </Card>
+          ) : null}
+
+          {/* 5. DAFTAR ANTREAN AKTIF */}
+          <Card>
+            <View style={styles.queueHeaderRow}>
+              <Text style={styles.sectionTitle} accessibilityRole="header">
+                Daftar Antrean Aktif
+              </Text>
+              <View style={styles.queueCountChip}>
+                <Text style={styles.queueCountText}>
+                  {queueItems.length} tiket
+                </Text>
+              </View>
+            </View>
+
+            {queueItems.length === 0 ? (
+              <EmptyState
+                illustration="empty"
+                illustrationSize={128}
+                title="Belum ada yang antre"
+                description="Tiket pelanggan yang masuk akan otomatis muncul secara waktu-nyata di sini."
+              />
+            ) : (
+              <View style={styles.queueList}>
+                {queueItems.map((item) => {
+                  const isItemCalled = item.status === 'called';
+                  return (
                     <View
+                      key={item.ticket_id}
                       style={[
-                        styles.queueStatusBadge,
-                        isItemCalled
-                          ? styles.queueStatusCalled
-                          : styles.queueStatusWaiting,
+                        styles.queueItemRow,
+                        isItemCalled ? styles.queueItemRowCalled : null,
                       ]}
                     >
-                      <Text
+                      <View
                         style={[
-                          styles.queueStatusText,
-                          isItemCalled
-                            ? styles.queueStatusCalledText
-                            : styles.queueStatusWaitingText,
+                          styles.queueNumberBadge,
+                          isItemCalled ? styles.queueNumberBadgeCalled : null,
                         ]}
                       >
-                        {isItemCalled ? 'Dipanggil' : 'Menunggu'}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.queueNumberText,
+                            isItemCalled ? styles.queueNumberTextCalled : null,
+                          ]}
+                        >
+                          {item.number}
+                        </Text>
+                      </View>
+
+                      <View style={styles.queueItemInfo}>
+                        <Text
+                          style={styles.queueCustomerName}
+                          numberOfLines={1}
+                        >
+                          {item.display_name}
+                        </Text>
+                        <Text style={styles.queueTimeText}>
+                          Diambil pukul {formatWibTimeOnly(item.created_at)}
+                        </Text>
+                      </View>
+
+                      <StatusPill
+                        status={isItemCalled ? 'called' : 'waiting'}
+                        size="sm"
+                      />
                     </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
+                  );
+                })}
+              </View>
+            )}
+          </Card>
 
-        {/* 5. PINTASAN RINGKASAN HARIAN & PENGATURAN USAHA */}
-        <View style={styles.navButtonsRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryNavButton,
-              pressed && styles.secondaryNavButtonPressed,
-            ]}
-            onPress={() => router.push('/(pemilik)/ringkasan')}
-            accessibilityRole="button"
-            accessibilityLabel="Buka halaman Ringkasan Harian"
-          >
-            <Text style={styles.secondaryNavButtonText}>Ringkasan Harian</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryNavButton,
-              pressed && styles.secondaryNavButtonPressed,
-            ]}
-            onPress={() => router.push('/(pemilik)/pengaturan')}
-            accessibilityRole="button"
-            accessibilityLabel="Buka halaman Pengaturan Usaha"
-          >
-            <Text style={styles.secondaryNavButtonText}>Pengaturan Usaha</Text>
-          </Pressable>
-        </View>
+          {/* 6. TUTUP ANTREAN (TERPISAH DI BAWAH) */}
+          {isQueueOpen ? (
+            <Card style={styles.closeSessionCard}>
+              <View style={styles.closeSessionTexts}>
+                <Text style={styles.closeSessionTitle}>
+                  Akhiri Sesi Antrean Hari Ini
+                </Text>
+                <Text style={styles.closeSessionSub}>
+                  Menutup antrean akan menghentikan pengambilan nomor baru dan
+                  mengakhiri sisa tiket yang belum selesai.
+                </Text>
+              </View>
+              <Button
+                label="Tutup antrean"
+                variant="dangerOutline"
+                iconLeft="stop-circle-outline"
+                onPress={handleConfirmCloseQueue}
+                loading={closeQueueMutation.isPending}
+                disabled={isMutating}
+                accessibilityLabel="Tutup antrean usaha hari ini"
+              />
+            </Card>
+          ) : null}
+        </FadeInView>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.canvas,
   },
-  centeredContainer: {
+  flex: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  loadingText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.md,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
+  },
+  skeletonStack: {
+    gap: theme.spacing.lg,
+  },
+  skeletonCard: {
     gap: theme.spacing.md,
   },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
+  headerDark: {
+    backgroundColor: theme.colors.ink,
+    borderBottomLeftRadius: theme.radii.sheet,
+    borderBottomRightRadius: theme.radii.sheet,
+    paddingHorizontal: theme.spacing.screen,
+    paddingBottom: theme.spacing.xl + HERO_OVERLAP,
   },
-  headerRow: {
+  headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.lg,
+    alignItems: 'center',
     gap: theme.spacing.md,
   },
-  businessInfo: {
+  headerTexts: {
     flex: 1,
+    gap: 2,
   },
   businessName: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.subtitle,
+    fontSize: 19,
+    fontWeight: '700',
+    color: theme.colors.onInk,
   },
-  categoryText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+  categoryAddress: {
+    ...theme.typography.caption,
+    color: theme.colors.onInkSecondary,
   },
-  statusPill: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
+  bodyContent: {
+    paddingHorizontal: theme.spacing.screen,
+    gap: theme.spacing.lg,
   },
-  statusOpenPill: {
-    backgroundColor: theme.colors.status.called.background,
-  },
-  statusClosedPill: {
-    backgroundColor: theme.colors.status.waiting.background,
-  },
-  statusPillText: {
-    ...theme.typography.bodyBold,
-  },
-  statusOpenText: {
-    color: theme.colors.status.called.text,
-  },
-  statusClosedText: {
-    color: theme.colors.status.waiting.text,
-  },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  retryButtonMargin: {
-    marginTop: theme.spacing.md,
-  },
-  inlineRetryButton: {
-    minHeight: 44,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.status.cancelled.text,
-    justifyContent: 'center',
+  heroCard: {
+    marginTop: -HERO_OVERLAP,
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xl,
   },
-  inlineRetryButtonPressed: {
-    opacity: 0.85,
-  },
-  inlineRetryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.cancelled.text,
-  },
-  heroMetricBox: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  heroMetricLabel: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textMuted,
+  heroLabel: {
+    ...theme.typography.label,
+    color: theme.colors.slateText,
     marginBottom: theme.spacing.xs,
   },
-  heroMetricValue: {
-    ...theme.typography.displayTicket,
+  heroNumber: {
+    ...theme.typography.displayHero,
+    color: theme.colors.primary,
   },
-  secondaryMetricsRow: {
+  heroActionBtn: {
+    marginTop: theme.spacing.lg,
+  },
+  tilesRow: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  metricLabel: {
-    ...theme.typography.caption,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  metricNumber: {
-    ...theme.typography.heading,
-    fontSize: 28,
-    lineHeight: 34,
-  },
-  openButton: {
-    width: '100%',
-    minHeight: 56,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  openButtonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  closeButton: {
-    width: '100%',
-    minHeight: 56,
-    backgroundColor: theme.colors.status.cancelled.text,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  closeButtonPressed: {
-    opacity: 0.85,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  primaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-    fontSize: 16,
   },
   calledCard: {
-    borderRadius: theme.radii.card,
     borderWidth: 2,
-    padding: theme.spacing.xl,
+    gap: theme.spacing.md,
   },
   calledCardActive: {
-    backgroundColor: theme.colors.status.called.background,
     borderColor: theme.colors.status.called.text,
   },
   calledCardExpired: {
-    backgroundColor: theme.colors.status.cancelled.background,
     borderColor: theme.colors.status.cancelled.text,
   },
   calledHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
+  calledLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs + 2,
+  },
   calledSectionLabel: {
-    ...theme.typography.subheading,
+    ...theme.typography.subtitle,
+    fontSize: 16,
   },
   calledTextActive: {
-    color: theme.colors.status.called.text,
+    color: theme.colors.statusInk.called,
   },
   calledTextExpired: {
-    color: theme.colors.status.cancelled.text,
+    color: theme.colors.statusInk.cancelled,
   },
   timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radii.pill,
   },
   timerBadgeActive: {
-    backgroundColor: theme.colors.status.called.text,
+    backgroundColor: theme.colors.status.called.background,
   },
   timerBadgeExpired: {
-    backgroundColor: theme.colors.status.cancelled.text,
+    backgroundColor: theme.colors.status.cancelled.background,
   },
   timerBadgeText: {
-    ...theme.typography.bodyBold,
+    ...theme.typography.captionStrong,
+    fontVariant: ['tabular-nums'],
   },
   timerBadgeTextActive: {
-    color: theme.colors.surface,
+    color: theme.colors.statusInk.called,
   },
   timerBadgeTextExpired: {
-    color: theme.colors.surface,
+    color: theme.colors.statusInk.cancelled,
   },
   calledMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.lg,
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.canvas,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.tile,
+  },
+  calledNumberCircle: {
+    minWidth: 56,
+    height: 56,
+    borderRadius: theme.radii.tile,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  calledNumberCircleActive: {
+    backgroundColor: theme.colors.status.called.background,
+  },
+  calledNumberCircleExpired: {
+    backgroundColor: theme.colors.status.cancelled.background,
   },
   calledNumber: {
-    fontFamily: 'Roboto',
-    fontSize: 44,
-    lineHeight: 50,
-    fontWeight: '700',
+    ...theme.typography.title,
+    fontSize: 26,
+    fontVariant: ['tabular-nums'],
   },
   calledCustomerBlock: {
     flex: 1,
+    gap: 2,
   },
   calledCustomerName: {
-    ...theme.typography.heading,
-    marginBottom: 2,
+    ...theme.typography.subtitle,
+    fontSize: 17,
   },
   calledSubtext: {
     ...theme.typography.caption,
-    color: theme.colors.textPrimary,
-  },
-  sectionTitle: {
-    ...theme.typography.subheading,
-    marginBottom: theme.spacing.md,
-  },
-  emptyNoticeBox: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    alignItems: 'center',
-  },
-  emptyNoticeText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textMuted,
   },
   actionButtonsStack: {
-    gap: theme.spacing.md,
-  },
-  jumboActionButton: {
-    width: '100%',
-    minHeight: 60,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-  },
-  callNextPrimaryButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  callNextPrimaryPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  doneNextButton: {
-    backgroundColor: theme.colors.status.called.text,
-  },
-  doneNextButtonPressed: {
-    opacity: 0.88,
-  },
-  noShowNextButton: {
-    backgroundColor: theme.colors.status.cancelled.text,
-  },
-  noShowNextButtonPressed: {
-    opacity: 0.88,
-  },
-  jumboActionButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-    fontSize: 16,
-    textAlign: 'center',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
   },
   queueHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
   },
+  sectionTitle: {
+    ...theme.typography.subtitle,
+  },
+  queueCountChip: {
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radii.pill,
+  },
   queueCountText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primaryDark,
-  },
-  emptyQueueBox: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.card,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  emptyQueueText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
+    ...theme.typography.captionStrong,
+    color: theme.colors.primary,
   },
   queueList: {
     gap: theme.spacing.sm,
@@ -1031,84 +894,60 @@ const styles = StyleSheet.create({
   queueItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
     gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.tile,
+    backgroundColor: theme.colors.canvas,
   },
   queueItemRowCalled: {
     backgroundColor: theme.colors.status.called.background,
+    borderWidth: 1,
     borderColor: theme.colors.status.called.text,
   },
   queueNumberBadge: {
-    minWidth: 52,
+    minWidth: 44,
     height: 44,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm,
   },
+  queueNumberBadgeCalled: {
+    backgroundColor: theme.colors.status.called.text,
+  },
   queueNumberText: {
-    ...theme.typography.subheading,
-    color: theme.colors.primaryDark,
+    ...theme.typography.bodyLgStrong,
+    color: theme.colors.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  queueNumberTextCalled: {
+    color: theme.colors.white,
   },
   queueItemInfo: {
     flex: 1,
+    gap: 2,
   },
   queueCustomerName: {
-    ...theme.typography.bodyBold,
-    marginBottom: 2,
+    ...theme.typography.bodyLgStrong,
   },
   queueTimeText: {
     ...theme.typography.caption,
   },
-  queueStatusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-  },
-  queueStatusCalled: {
-    backgroundColor: theme.colors.status.called.text,
-  },
-  queueStatusWaiting: {
-    backgroundColor: theme.colors.status.waiting.background,
-  },
-  queueStatusText: {
-    ...theme.typography.bodyBold,
-    fontSize: 12,
-  },
-  queueStatusCalledText: {
-    color: theme.colors.surface,
-  },
-  queueStatusWaitingText: {
-    color: theme.colors.status.waiting.text,
-  },
-  navButtonsRow: {
-    flexDirection: 'row',
+  closeSessionCard: {
     gap: theme.spacing.md,
-  },
-  secondaryNavButton: {
-    flex: 1,
-    minHeight: 54,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
+    borderColor: theme.colors.dangerBorderSoft,
   },
-  secondaryNavButtonPressed: {
-    backgroundColor: theme.colors.background,
+  closeSessionTexts: {
+    gap: 4,
   },
-  secondaryNavButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-    textAlign: 'center',
+  closeSessionTitle: {
+    ...theme.typography.subtitle,
+    fontSize: 16,
+    color: theme.colors.statusInk.cancelled,
+  },
+  closeSessionSub: {
+    ...theme.typography.caption,
   },
 });

@@ -1,13 +1,7 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { theme } from '@/lib/theme';
+import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Button, Card, Icon } from '@/components/ui';
+import { colors, radii, spacing, typography } from '@/lib/theme';
 
 export interface PushPermissionModalProps {
   visible: boolean;
@@ -33,12 +27,12 @@ export function PushPermissionModal({
       onRequestClose={onDismiss}
     >
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <Card style={styles.card}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconSymbol}>🔔</Text>
+            <Icon name="notifications" size={30} color={colors.accent} />
           </View>
 
-          <Text style={styles.title}>
+          <Text style={styles.title} accessibilityRole="header">
             Jangan Lewatkan Giliran Antrean Anda
           </Text>
 
@@ -49,7 +43,9 @@ export function PushPermissionModal({
 
           <View style={styles.benefitList}>
             <View style={styles.benefitRow}>
-              <Text style={styles.benefitBullet}>1.</Text>
+              <View style={styles.benefitBadge}>
+                <Text style={styles.benefitBullet}>1</Text>
+              </View>
               <Text style={styles.benefitText}>
                 <Text style={styles.benefitBold}>Peringatan Hampir Tiba:</Text>{' '}
                 Pemberitahuan otomatis saat tersisa maksimal 2 orang di depan
@@ -58,7 +54,9 @@ export function PushPermissionModal({
             </View>
 
             <View style={styles.benefitRow}>
-              <Text style={styles.benefitBullet}>2.</Text>
+              <View style={styles.benefitBadge}>
+                <Text style={styles.benefitBullet}>2</Text>
+              </View>
               <Text style={styles.benefitText}>
                 <Text style={styles.benefitBold}>Panggilan Giliran:</Text>{' '}
                 Pemberitahuan prioritas tinggi tepat saat nomor Anda dipanggil
@@ -67,35 +65,24 @@ export function PushPermissionModal({
             </View>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && !isLoading && styles.primaryButtonPressed,
-              isLoading && styles.buttonDisabled,
-            ]}
-            onPress={onConfirm}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={theme.colors.surface} />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                Lanjutkan & Izinkan Notifikasi
-              </Text>
-            )}
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && !isLoading && styles.secondaryButtonPressed,
-            ]}
-            onPress={onDismiss}
-            disabled={isLoading}
-          >
-            <Text style={styles.secondaryButtonText}>Nanti Saja</Text>
-          </Pressable>
-        </View>
+          <View style={styles.actions}>
+            <Button
+              label="Lanjutkan & Izinkan Notifikasi"
+              size="l"
+              onPress={onConfirm}
+              loading={isLoading}
+              disabled={isLoading}
+              accessibilityLabel="Lanjutkan dan izinkan notifikasi"
+            />
+            <Button
+              label="Nanti Saja"
+              variant="ghost"
+              onPress={onDismiss}
+              disabled={isLoading}
+              accessibilityLabel="Tunda izin notifikasi"
+            />
+          </View>
+        </Card>
       </View>
     </Modal>
   );
@@ -104,101 +91,72 @@ export function PushPermissionModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(43, 45, 66, 0.55)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.xl,
+    padding: spacing.screen,
   },
   card: {
     width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
     alignItems: 'center',
   },
   iconCircle: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.background,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  iconSymbol: {
-    fontSize: 28,
+    marginBottom: spacing.lg,
   },
   title: {
-    ...theme.typography.heading,
+    ...typography.subtitle,
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: spacing.xs,
   },
   description: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+    ...typography.bodyLg,
+    color: colors.slateText,
     textAlign: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: spacing.lg,
   },
   benefitList: {
     width: '100%',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.card,
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
+    backgroundColor: colors.canvas,
+    borderRadius: radii.tile,
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
   benefitRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: theme.spacing.sm,
+    gap: spacing.sm + 2,
+  },
+  benefitBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
   },
   benefitBullet: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primaryDark,
+    ...typography.captionStrong,
+    color: colors.primary,
   },
   benefitText: {
-    ...theme.typography.body,
+    ...typography.body,
     flex: 1,
   },
   benefitBold: {
-    ...theme.typography.bodyBold,
+    ...typography.bodyBold,
   },
-  primaryButton: {
-    width: '100%',
-    minHeight: 54,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-  },
-  primaryButtonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  primaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-    textAlign: 'center',
-  },
-  secondaryButton: {
-    width: '100%',
-    minHeight: 46,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  secondaryButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  secondaryButtonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textMuted,
+  actions: {
+    alignSelf: 'stretch',
+    gap: spacing.xs,
   },
 });
-

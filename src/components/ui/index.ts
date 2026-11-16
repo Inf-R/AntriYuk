@@ -6,7 +6,21 @@
  */
 export { Icon } from './Icon';
 export type { IconName, IconProps } from './Icon';
+export {
+  CategoryIcon,
+  CategoryTile,
+  CATEGORY_ICON_MAP,
+  getCategoryIconName,
+} from './CategoryIcon';
+export type {
+  CategoryFilterKey,
+  CategoryIconProps,
+  CategoryMciIconName,
+  CategoryTileProps,
+} from './CategoryIcon';
 export { useReducedMotion } from './useReducedMotion';
+export { FadeInView } from './FadeInView';
+export type { FadeInViewProps } from './FadeInView';
 export { Screen } from './Screen';
 export type { ScreenProps } from './Screen';
 export { ScreenHeader, IconButton } from './ScreenHeader';
@@ -20,7 +34,7 @@ export type { ChipProps } from './Chip';
 export { StatusPill } from './StatusPill';
 export type { StatusPillProps, PillStatus } from './StatusPill';
 export { StatTile } from './StatTile';
-export type { StatTileProps, StatTileVariant } from './StatTile';
+export type { StatTileProps, StatTileVariant, StatTileIconTone } from './StatTile';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { Banner } from './Banner';
@@ -39,4 +53,11 @@ export { OtpInput } from './OtpInput';
 export type { OtpInputProps } from './OtpInput';
 export { StepIndicator } from './StepIndicator';
 export type { StepIndicatorProps } from './StepIndicator';
-
+export { TicketCard } from './TicketCard';
+export type { TicketCardProps } from './TicketCard';
+export { Timeline } from './Timeline';
+export type { TimelineProps, TimelineStepItem } from './Timeline';
+export { BottomTabs } from './BottomTabs';
+export type { BottomTabsProps, BottomTabItemConfig } from './BottomTabs';
+export { Stepper } from './Stepper';
+export type { StepperProps } from './Stepper';

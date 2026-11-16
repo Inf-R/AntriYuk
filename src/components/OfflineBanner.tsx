@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useOnline } from '@/hooks/useOnline';
-import { theme } from '@/lib/theme';
+import { Banner } from '@/components/ui';
+import { spacing } from '@/lib/theme';
 
 export interface OfflineBannerProps {
   message?: string;
@@ -14,40 +15,22 @@ export function OfflineBanner({ message }: OfflineBannerProps) {
     return null;
   }
 
+  const text =
+    message ?? 'Anda sedang offline. Beberapa fitur membutuhkan koneksi internet.';
+
   return (
-    <View
+    <Banner
+      tone="warning"
+      icon="cloud-offline-outline"
+      message={text}
+      accessibilityLabel={text}
       style={styles.banner}
-      accessible
-      accessibilityRole="alert"
-      accessibilityLabel={
-        message ??
-        'Anda sedang offline. Beberapa fitur membutuhkan koneksi internet.'
-      }
-    >
-      <Text style={styles.text}>
-        {message ??
-          'Anda sedang offline. Beberapa fitur membutuhkan koneksi internet.'}
-      </Text>
-    </View>
+    />
   );
 }
 
 const styles = StyleSheet.create({
   banner: {
-    width: '100%',
-    backgroundColor: theme.colors.status.approaching.background,
-    borderWidth: 1,
-    borderColor: theme.colors.status.approaching.text,
-    borderRadius: theme.radii.card,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    alignItems: 'center',
-  },
-  text: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.approaching.text,
-    textAlign: 'center',
+    marginBottom: spacing.md,
   },
 });
-

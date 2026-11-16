@@ -1,24 +1,35 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { Banner, Card, Screen, ScreenHeader } from '@/components/ui';
 import { theme } from '@/lib/theme';
 
 export default function KebijakanPrivasiScreen() {
-  return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <OfflineBanner />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.card}>
-          <View style={styles.disclaimerBanner} accessibilityRole="alert">
-            <Text style={styles.disclaimerTitle}>Catatan Penting (Bukan Nasihat Hukum)</Text>
-            <Text style={styles.disclaimerText}>
-              Dokumen ini adalah draf ringkas kebijakan privasi aplikasi proyek akademik AntriYuk
-              dan bukan merupakan nasihat hukum resmi. Pengelola usaha atau pengembang yang
-              merilis aplikasi ke publik wajib meninjau ulang dokumen ini bersama penasihat hukum.
-            </Text>
-          </View>
+  const router = useRouter();
 
+  return (
+    <Screen
+      edges={['top', 'left', 'right', 'bottom']}
+      header={
+        <ScreenHeader
+          title="Kebijakan Privasi"
+          onBack={router.canGoBack() ? () => router.back() : undefined}
+          backAccessibilityLabel="Kembali dari Kebijakan Privasi"
+        />
+      }
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <OfflineBanner />
+
+      <View style={styles.stack}>
+        <Banner
+          tone="warning"
+          title="Catatan Penting (Bukan Nasihat Hukum)"
+          message="Dokumen ini adalah draf ringkas kebijakan privasi aplikasi proyek akademik AntriYuk dan bukan merupakan nasihat hukum resmi. Pengelola usaha atau pengembang yang merilis aplikasi ke publik wajib meninjau ulang dokumen ini bersama penasihat hukum."
+        />
+
+        <Card style={styles.card}>
           <Text style={styles.title} accessibilityRole="header">
             Kebijakan Privasi AntriYuk
           </Text>
@@ -111,85 +122,56 @@ export default function KebijakanPrivasiScreen() {
             <Text style={styles.contactText}>Email Kontak: [ISI ALAMAT EMAIL KONTAK]</Text>
             <Text style={styles.contactText}>Alamat / Instansi: [ISI ALAMAT / PROGRAM STUDI]</Text>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </Card>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
+  stack: {
+    gap: theme.spacing.lg,
   },
   card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  disclaimerBanner: {
-    backgroundColor: theme.colors.status.approaching.background,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.status.approaching.text,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-  },
-  disclaimerTitle: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.status.approaching.text,
-    marginBottom: 4,
-  },
-  disclaimerText: {
-    ...theme.typography.caption,
-    color: theme.colors.textPrimary,
+    gap: theme.spacing.sm,
   },
   title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.title,
+    fontSize: 22,
   },
   caption: {
     ...theme.typography.caption,
-    marginBottom: theme.spacing.lg,
-  },
-  sectionTitle: {
-    ...theme.typography.subheading,
-    marginTop: theme.spacing.md,
     marginBottom: theme.spacing.xs,
   },
+  sectionTitle: {
+    ...theme.typography.subtitle,
+    fontSize: 16,
+    marginTop: theme.spacing.sm,
+  },
   paragraph: {
-    ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.sm,
+    ...theme.typography.bodyLg,
+    color: theme.colors.ink,
   },
   bulletList: {
     gap: theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
     paddingLeft: theme.spacing.xs,
   },
   bulletItem: {
-    ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    ...theme.typography.bodyLg,
+    color: theme.colors.ink,
   },
   bold: {
     fontWeight: '700',
   },
   contactBox: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    gap: 4,
+    backgroundColor: theme.colors.canvas,
+    borderRadius: theme.radii.tile,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.xs,
     marginTop: theme.spacing.xs,
   },
   contactText: {
     ...theme.typography.bodyBold,
-    color: theme.colors.primaryDark,
+    color: theme.colors.primary,
   },
 });

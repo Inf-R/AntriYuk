@@ -1,55 +1,73 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
+import { BottomTabs, type BottomTabItemConfig } from '@/components/ui';
+import { useSession } from '@/hooks/useSession';
 import { theme } from '@/lib/theme';
 
+const OWNER_TAB_ITEMS: readonly BottomTabItemConfig[] = [
+  {
+    routeName: 'index',
+    label: 'Antrean',
+    activeIcon: 'list',
+    inactiveIcon: 'list-outline',
+    accessibilityLabel: 'Tab Kelola Antrean',
+  },
+  {
+    routeName: 'ringkasan',
+    label: 'Ringkasan',
+    activeIcon: 'bar-chart',
+    inactiveIcon: 'bar-chart-outline',
+    accessibilityLabel: 'Tab Ringkasan Harian',
+  },
+  {
+    routeName: 'pengaturan',
+    label: 'Pengaturan',
+    activeIcon: 'settings',
+    inactiveIcon: 'settings-outline',
+    accessibilityLabel: 'Tab Pengaturan Usaha',
+  },
+  {
+    routeName: 'profil',
+    label: 'Profil',
+    activeIcon: 'person-circle',
+    inactiveIcon: 'person-circle-outline',
+    accessibilityLabel: 'Tab Profil Pemilik',
+  },
+];
+
 export default function PemilikLayout() {
-  const router = useRouter();
+  const { ownerBusinessId } = useSession();
+  const hideBarOnRoutes = ownerBusinessId
+    ? (['onboarding'] as const)
+    : (['onboarding', 'profil'] as const);
 
   return (
-    <Stack
+    <Tabs
+      backBehavior="history"
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTintColor: theme.colors.textPrimary,
-        contentStyle: { backgroundColor: theme.colors.background },
-        headerRight: () => (
-          <Pressable
-            style={styles.profileChip}
-            onPress={() => router.push('/(pemilik)/profil')}
-            accessibilityRole="button"
-            accessibilityLabel="Buka profil pemilik"
-          >
-            <Text style={styles.profileChipText}>Profil</Text>
-          </Pressable>
-        ),
+        headerShown: false,
+        sceneStyle: { backgroundColor: theme.colors.canvas },
       }}
+      tabBar={(props) => (
+        <BottomTabs
+          {...props}
+          items={OWNER_TAB_ITEMS}
+          hideBarOnRoutes={hideBarOnRoutes}
+        />
+      )}
     >
-      <Stack.Screen name="onboarding" options={{ title: 'Pendaftaran Usaha' }} />
-      <Stack.Screen name="index" options={{ title: 'Kelola Antrean' }} />
-      <Stack.Screen name="ringkasan" options={{ title: 'Ringkasan Harian' }} />
-      <Stack.Screen name="pengaturan" options={{ title: 'Pengaturan Usaha' }} />
-      <Stack.Screen
-        name="profil"
-        options={{ title: 'Profil Pemilik', headerRight: () => null }}
+      <Tabs.Screen name="index" options={{ title: 'Kelola Antrean' }} />
+      <Tabs.Screen name="ringkasan" options={{ title: 'Ringkasan Harian' }} />
+      <Tabs.Screen name="pengaturan" options={{ title: 'Pengaturan Usaha' }} />
+      <Tabs.Screen name="profil" options={{ title: 'Profil Pemilik' }} />
+      <Tabs.Screen
+        name="onboarding"
+        options={{
+          title: 'Pendaftaran Usaha',
+          tabBarItemStyle: { display: 'none' },
+          tabBarButton: () => null,
+        }}
       />
-    </Stack>
+    </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  profileChip: {
-    minHeight: 44,
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileChipText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.primary,
-  },
-});

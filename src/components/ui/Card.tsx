@@ -1,16 +1,26 @@
 /**
  * Card — permukaan putih radius 20 berbayangan lembut.
  * Varian: default (putih), tint (canvas, tanpa bayangan), dark (ink).
- * Bila onPress diisi, kartu menjadi tombol dengan umpan balik tekan.
+ * Bila onPress diisi, kartu menjadi tombol dengan umpan balik tekan skala 0,98
+ * yang menghormati pengaturan reduce motion.
  *
  * Contoh:
  *   <Card><Text>Isi kartu</Text></Card>
  *   <Card variant="tint" padding="md">...</Card>
- *   <Card variant="dark" onPress={openTicket} accessibilityLabel="Buka tiket">...</Card>
+ *   <Card onPress={openDetail} accessibilityLabel="Buka detail usaha">...</Card>
  */
-import React, { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { colors, radii, shadows, spacing } from '@/lib/theme';
+import React, { ReactNode, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  View,
+  ViewStyle,
+} from 'react-native';
+import { colors, motion, radii, shadows, spacing } from '@/lib/theme';
+import { useReducedMotion } from './useReducedMotion';
 
 export type CardVariant = 'default' | 'tint' | 'dark';
 export type CardPadding = 'none' | 'md' | 'lg';
@@ -45,6 +55,19 @@ export function Card({
   style,
   testID,
 }: CardProps) {
+  const reduceMotion = useReducedMotion();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animateTo = (toValue: number) => {
+    if (reduceMotion) return;
+    Animated.timing(scale, {
+      toValue,
+      duration: motion.fast,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+
   const baseStyle: StyleProp<ViewStyle> = [
     styles.base,
     variantStyles[variant],
@@ -53,23 +76,27 @@ export function Card({
 
   if (onPress) {
     return (
-      <Pressable
-        onPress={onPress}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={accessibilityHint}
-        accessibilityState={{ disabled }}
-        testID={testID}
-        style={({ pressed }) => [
-          baseStyle,
-          pressed ? styles.pressed : null,
-          disabled ? styles.disabled : null,
-          style,
-        ]}
-      >
-        {children}
-      </Pressable>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Pressable
+          onPress={onPress}
+          onPressIn={() => animateTo(motion.pressScale)}
+          onPressOut={() => animateTo(1)}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+          accessibilityState={{ disabled }}
+          testID={testID}
+          style={({ pressed }) => [
+            baseStyle,
+            pressed ? styles.pressed : null,
+            disabled ? styles.disabled : null,
+            style,
+          ]}
+        >
+          {children}
+        </Pressable>
+      </Animated.View>
     );
   }
 
@@ -91,7 +118,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.94,
-    transform: [{ scale: 0.99 }],
   },
   disabled: {
     opacity: 0.55,
@@ -111,4 +137,3 @@ const variantStyles = StyleSheet.create({
     ...shadows.soft,
   },
 });
-

@@ -2,12 +2,12 @@
  * GeoIllustration — ilustrasi dekoratif dari View geometris (lingkaran,
  * persegi membulat, belah ketupat rotate 45 derajat, tanda centang dari border).
  * Memakai palet: ink, primary, accent, muted, canvas (+ white, primarySoft).
- * Tanpa SVG / gambar. Dekoratif secara default (disembunyikan dari pembaca layar).
+ * Tanpa SVG / gambar eksternal. Dekoratif secara default.
  *
  * Contoh:
- *   <GeoIllustration variant="hero" size={180} />
- *   <GeoIllustration variant="empty" />
- *   <GeoIllustration variant="success" size={140} accessibilityLabel="Berhasil" />
+ *   <GeoIllustration variant="hero" size={160} />
+ *   <GeoIllustration variant="empty" size={148} />
+ *   <GeoIllustration variant="success" size={140} />
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
@@ -43,27 +43,45 @@ interface Shape {
 const BASE = 160;
 
 const compositions: Record<GeoVariant, Shape[]> = {
-  // Kartu tiket bertumpuk di atas lingkaran besar, ditemani bentuk kecil.
+  // Ilustrasi gerai & antrean modern (mengacu pada layar Login & Onboarding).
   hero: [
-    { kind: 'circle', x: 14, y: 22, w: 124, color: colors.primarySoft },
-    { kind: 'rounded', x: 30, y: 46, w: 92, h: 64, r: 16, color: colors.accent, rotate: -8 },
-    { kind: 'rounded', x: 40, y: 52, w: 92, h: 64, r: 16, color: colors.primary },
-    { kind: 'bar', x: 54, y: 70, w: 40, h: 8, r: 4, color: colors.white },
-    { kind: 'bar', x: 54, y: 86, w: 60, h: 8, r: 4, color: 'rgba(255, 255, 255, 0.45)' },
-    { kind: 'diamond', x: 120, y: 18, w: 22, color: colors.ink },
-    { kind: 'circle', x: 128, y: 112, w: 16, color: colors.muted },
-    { kind: 'ring', x: 10, y: 118, w: 22, stroke: 4, color: colors.accent },
+    // Lingkaran latar lembut
+    { kind: 'circle', x: 16, y: 14, w: 128, color: colors.primarySoft },
+    // Bangunan gerai
+    { kind: 'rounded', x: 28, y: 54, w: 68, h: 68, r: 12, color: colors.white },
+    // Kanopi gerai
+    { kind: 'rounded', x: 24, y: 44, w: 76, h: 18, r: 8, color: colors.accent },
+    // Pintu & jendela gerai
+    { kind: 'rounded', x: 38, y: 78, w: 22, h: 44, r: 6, color: colors.primary },
+    { kind: 'rounded', x: 66, y: 76, w: 20, h: 20, r: 5, color: colors.primarySoft },
+    // Siluet antrean pelanggan (3 figur geometris)
+    { kind: 'circle', x: 105, y: 66, w: 14, color: colors.primary },
+    { kind: 'rounded', x: 101, y: 83, w: 22, h: 38, r: 8, color: colors.primary },
+    { kind: 'circle', x: 127, y: 74, w: 12, color: colors.accent },
+    { kind: 'rounded', x: 124, y: 89, w: 18, h: 32, r: 7, color: colors.accent },
+    // Aksen geometris mengambang
+    { kind: 'diamond', x: 120, y: 24, w: 16, color: colors.accent },
+    { kind: 'circle', x: 20, y: 28, w: 10, color: colors.muted },
+    { kind: 'bar', x: 18, y: 120, w: 124, h: 6, r: 3, color: colors.primarySoft },
   ],
-  // Bidang tenang dengan kotak kosong bergaris putus.
+  // Papan tiket / clipboard miring dengan lencana centang (mengacu pada layar Belum ada antrean).
   empty: [
-    { kind: 'circle', x: 16, y: 16, w: 128, color: colors.white },
-    { kind: 'rounded', x: 50, y: 50, w: 60, h: 60, r: 16, color: colors.canvas },
-    { kind: 'bar', x: 62, y: 72, w: 36, h: 6, r: 3, color: colors.muted },
-    { kind: 'bar', x: 62, y: 84, w: 24, h: 6, r: 3, color: colors.muted },
-    { kind: 'diamond', x: 118, y: 24, w: 18, color: colors.accent },
-    { kind: 'circle', x: 22, y: 116, w: 14, color: colors.primary },
-    { kind: 'circle', x: 128, y: 124, w: 8, color: colors.ink },
-    { kind: 'ring', x: 14, y: 30, w: 18, stroke: 3, color: colors.muted },
+    { kind: 'circle', x: 18, y: 18, w: 124, color: colors.primarySoft },
+    // Papan klip belakang
+    { kind: 'rounded', x: 44, y: 32, w: 74, h: 96, r: 16, color: colors.accent, rotate: -6 },
+    // Kertas putih di dalam papan
+    { kind: 'rounded', x: 52, y: 44, w: 58, h: 74, r: 10, color: colors.white, rotate: -6 },
+    // Klip atas
+    { kind: 'rounded', x: 66, y: 26, w: 30, h: 14, r: 6, color: colors.primary, rotate: -6 },
+    // Lingkaran & centang di tengah kertas
+    { kind: 'circle', x: 64, y: 60, w: 34, color: colors.primarySoft },
+    { kind: 'check', x: 76, y: 67, w: 10, h: 18, stroke: 4, color: colors.accent, rotate: 40 },
+    // Baris teks tiruan
+    { kind: 'bar', x: 62, y: 102, w: 38, h: 5, r: 3, color: colors.canvas },
+    // Aksen sekitar
+    { kind: 'diamond', x: 124, y: 34, w: 14, color: colors.primary },
+    { kind: 'circle', x: 24, y: 112, w: 12, color: colors.accent },
+    { kind: 'ring', x: 22, y: 36, w: 14, stroke: 3, color: colors.muted },
   ],
   // Lingkaran primary dengan centang, cincin accent, dan serpihan kecil.
   success: [
@@ -151,4 +169,3 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 });
-

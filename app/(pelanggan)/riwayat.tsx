@@ -1,67 +1,104 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import {
   formatWibDateTime,
   useTicketHistory,
   type TicketHistoryItem,
 } from '@/hooks/useCustomerQueue';
+import {
+  formatWibDateLabel,
+  formatWibTimeOnly,
+  getTodayWibDateString,
+  shiftWibDateString,
+} from '@/hooks/useOwnerSession';
 import { useOnline } from '@/hooks/useOnline';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { theme } from '@/lib/theme';
 import type { TicketStatus } from '@/types/database';
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Icon,
+  IconName,
+  PillStatus,
+  Screen,
+  ScreenHeader,
+  Skeleton,
+  StatusPill,
+} from '@/components/ui';
 
-function getTicketStatusStyle(status: TicketStatus): {
-  label: string;
-  textColor: string;
-  bgColor: string;
+function getHistoryStatusVisual(status: TicketStatus): {
+  pillStatus: PillStatus;
+  icon: IconName;
+  iconColor: string;
+  iconBg: string;
 } {
   switch (status) {
     case 'waiting':
       return {
-        label: 'Menunggu',
-        textColor: theme.colors.status.waiting.text,
-        bgColor: theme.colors.status.waiting.background,
+        pillStatus: 'waiting',
+        icon: 'time-outline',
+        iconColor: theme.colors.slateText,
+        iconBg: theme.colors.status.waiting.background,
       };
     case 'called':
       return {
-        label: 'Dipanggil',
-        textColor: theme.colors.status.called.text,
-        bgColor: theme.colors.status.called.background,
+        pillStatus: 'called',
+        icon: 'megaphone-outline',
+        iconColor: theme.colors.status.called.text,
+        iconBg: theme.colors.status.called.background,
       };
     case 'done':
       return {
-        label: 'Selesai',
-        textColor: theme.colors.status.called.text,
-        bgColor: theme.colors.status.called.background,
+        pillStatus: 'done',
+        icon: 'checkmark-circle',
+        iconColor: theme.colors.status.called.text,
+        iconBg: theme.colors.status.called.background,
       };
     case 'cancelled':
       return {
-        label: 'Dibatalkan',
-        textColor: theme.colors.status.cancelled.text,
-        bgColor: theme.colors.status.cancelled.background,
+        pillStatus: 'cancelled',
+        icon: 'close-circle-outline',
+        iconColor: theme.colors.status.cancelled.text,
+        iconBg: theme.colors.status.cancelled.background,
       };
     case 'no_show':
       return {
-        label: 'Tidak Hadir',
-        textColor: theme.colors.status.cancelled.text,
-        bgColor: theme.colors.status.cancelled.background,
+        pillStatus: 'no_show',
+        icon: 'person-remove-outline',
+        iconColor: theme.colors.status.cancelled.text,
+        iconBg: theme.colors.status.cancelled.background,
       };
     case 'expired':
       return {
-        label: 'Kedaluwarsa',
-        textColor: theme.colors.status.approaching.text,
-        bgColor: theme.colors.status.approaching.background,
+        pillStatus: 'expired',
+        icon: 'alert-circle-outline',
+        iconColor: theme.colors.slateText,
+        iconBg: theme.colors.canvas,
       };
   }
+}
+
+function getWibDateGroupLabel(
+  isoString: string,
+  todayWib: string,
+  yesterdayWib: string
+): string {
+  const parsed = new Date(isoString);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Riwayat';
+  }
+  const dateKey = getTodayWibDateString(parsed);
+  if (dateKey === todayWib) {
+    return 'Hari Ini';
+  }
+  if (dateKey === yesterdayWib) {
+    return 'Kemarin';
+  }
+  return formatWibDateLabel(dateKey);
 }
 
 export default function RiwayatPelangganScreen() {
@@ -78,90 +115,125 @@ export default function RiwayatPelangganScreen() {
   } = useTicketHistory();
 
   const items = data?.pages.flat() ?? [];
+  const todayWib = getTodayWibDateString();
+  const yesterdayWib = shiftWibDateString(todayWib, -1);
 
-  function renderHistoryItem({ item }: { item: TicketHistoryItem }) {
-    const statusStyle = getTicketStatusStyle(item.status);
+  function renderHistoryItem({
+    item,
+    index,
+  }: {
+    item: TicketHistoryItem;
+    index: number;
+  }) {
+    const visual = getHistoryStatusVisual(item.status);
+    const currentGroup = getWibDateGroupLabel(
+      item.createdAt,
+      todayWib,
+      yesterdayWib
+    );
+    const prevItem = index > 0 ? items[index - 1] : undefined;
+    const prevGroup = prevItem
+      ? getWibDateGroupLabel(prevItem.createdAt, todayWib, yesterdayWib)
+      : null;
+    const showGroupHeader = currentGroup !== prevGroup;
 
     return (
-      <View style={styles.card}>
-        <View style={styles.rowBetween}>
-          <View style={styles.businessInfo}>
-            <Text style={styles.businessName}>{item.businessName}</Text>
-            <Text style={styles.dateText}>
-              {formatWibDateTime(item.createdAt)}
-            </Text>
-          </View>
+      <View style={styles.itemWrapper}>
+        {showGroupHeader ? (
+          <Text style={styles.groupHeader} accessibilityRole="header">
+            {currentGroup}
+          </Text>
+        ) : null}
 
-          <View style={styles.numberBadge}>
-            <Text style={styles.numberBadgeLabel}>Nomor</Text>
-            <Text style={styles.numberBadgeValue}>{item.number}</Text>
-          </View>
-        </View>
-
-        <View style={styles.footerRow}>
-          <View
-            style={[
-              styles.statusPill,
-              { backgroundColor: statusStyle.bgColor },
-            ]}
-          >
-            <Text
-              style={[styles.statusPillText, { color: statusStyle.textColor }]}
+        <Card padding="md">
+          <View style={styles.rowBetween}>
+            <View
+              style={[
+                styles.statusCircle,
+                { backgroundColor: visual.iconBg },
+              ]}
             >
-              {statusStyle.label}
-            </Text>
+              <Icon name={visual.icon} size={22} color={visual.iconColor} />
+            </View>
+
+            <View style={styles.businessInfo}>
+              <Text style={styles.businessName} numberOfLines={1}>
+                {item.businessName}
+              </Text>
+              <Text style={styles.dateText}>
+                Pukul {formatWibTimeOnly(item.createdAt)} •{' '}
+                {formatWibDateTime(item.createdAt)}
+              </Text>
+              <View style={styles.pillRow}>
+                <StatusPill status={visual.pillStatus} size="sm" />
+              </View>
+            </View>
+
+            <View style={styles.numberChip}>
+              <Text style={styles.numberChipLabel}>Nomor</Text>
+              <Text style={styles.numberChipValue}>{item.number}</Text>
+            </View>
           </View>
-        </View>
+        </Card>
       </View>
     );
   }
 
   if (isLoading) {
     return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.mutedText}>Memuat riwayat antrean...</Text>
-      </View>
+      <Screen header={<ScreenHeader title="Riwayat Antrean" />}>
+        <View style={styles.skeletonList} accessibilityLabel="Memuat riwayat antrean">
+          {[0, 1, 2, 3].map((key) => (
+            <Card key={key} padding="md">
+              <View style={styles.rowBetween}>
+                <Skeleton width={44} height={44} radius={theme.radii.pill} />
+                <View style={styles.skeletonTexts}>
+                  <Skeleton width="60%" height={18} />
+                  <Skeleton width="45%" height={14} />
+                </View>
+                <Skeleton width={56} height={48} radius={theme.radii.button} />
+              </View>
+            </Card>
+          ))}
+        </View>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <Screen header={<ScreenHeader title="Riwayat Antrean" />}>
         <OfflineBanner />
-        <View style={styles.centerBox}>
-          <View style={styles.stateCard}>
-            <Text style={styles.errorTitle}>Gagal Memuat Riwayat</Text>
-            <Text style={styles.errorBody}>
-              {getFriendlyErrorMessage(error)}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => {
-                void refetch();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Coba muat ulang riwayat antrean"
-            >
-              <Text style={styles.buttonText}>Coba Lagi</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
+        <Banner
+          tone="danger"
+          title="Gagal Memuat Riwayat"
+          message={getFriendlyErrorMessage(error)}
+          actionLabel="Coba Lagi"
+          onAction={() => {
+            void refetch();
+          }}
+        />
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <OfflineBanner />
+    <Screen
+      scroll={false}
+      padded={false}
+      header={
+        <View style={styles.headerWrap}>
+          <ScreenHeader title="Riwayat Antrean" />
+        </View>
+      }
+    >
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
         renderItem={renderHistoryItem}
+        ListHeaderComponent={<OfflineBanner />}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching && !isFetchingNextPage}
@@ -178,185 +250,110 @@ export default function RiwayatPelangganScreen() {
           }
         }}
         ListEmptyComponent={
-          <View style={styles.stateCard}>
-            <Text style={styles.emptyTitle}>Belum Ada Riwayat Antrean</Text>
-            <Text style={styles.mutedText}>
-              Semua nomor antrean yang pernah Anda ambil akan tercatat di sini.
-            </Text>
-          </View>
+          <Card>
+            <EmptyState
+              illustration="empty"
+              title="Belum Ada Riwayat Antrean"
+              description="Semua nomor antrean yang pernah Anda ambil akan tercatat di sini."
+            />
+          </Card>
         }
         ListFooterComponent={
           hasNextPage ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.loadMoreButton,
-                (!isOnline || isFetchingNextPage) && styles.loadMoreButtonDisabled,
-                pressed && isOnline && !isFetchingNextPage && styles.loadMoreButtonPressed,
-              ]}
+            <Button
+              label="Muat Lebih Banyak"
+              variant="secondary"
+              iconLeft="refresh"
               onPress={() => {
                 void fetchNextPage();
               }}
+              loading={isFetchingNextPage}
               disabled={isFetchingNextPage || !isOnline}
-              accessibilityRole="button"
               accessibilityLabel="Muat lebih banyak riwayat antrean"
-            >
-              {isFetchingNextPage ? (
-                <ActivityIndicator color={theme.colors.primary} />
-              ) : (
-                <Text
-                  style={[
-                    styles.loadMoreText,
-                    !isOnline && styles.loadMoreTextDisabled,
-                  ]}
-                >
-                  Muat Lebih Banyak
-                </Text>
-              )}
-            </Pressable>
+              style={styles.loadMoreBtn}
+            />
           ) : undefined
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  headerWrap: {
+    paddingHorizontal: theme.spacing.screen,
   },
   listContent: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.screen,
+    paddingBottom: theme.spacing.xxl,
     gap: theme.spacing.md,
   },
-  centerBox: {
+  skeletonList: {
+    gap: theme.spacing.md,
+  },
+  skeletonTexts: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
+    gap: theme.spacing.sm,
   },
-  mutedText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
+  itemWrapper: {
+    gap: theme.spacing.xs + 2,
+  },
+  groupHeader: {
+    ...theme.typography.label,
+    color: theme.colors.slateText,
     marginTop: theme.spacing.xs,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
+    paddingHorizontal: 2,
   },
   rowBetween: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: theme.spacing.md,
   },
+  statusCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   businessInfo: {
     flex: 1,
+    gap: 3,
   },
   businessName: {
-    ...theme.typography.subheading,
-    marginBottom: 4,
+    ...theme.typography.subtitle,
+    fontSize: 16,
   },
   dateText: {
     ...theme.typography.caption,
   },
-  numberBadge: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    alignItems: 'center',
-    minWidth: 64,
-  },
-  numberBadgeLabel: {
-    ...theme.typography.caption,
-    fontSize: 10,
-  },
-  numberBadgeValue: {
-    ...theme.typography.heading,
-  },
-  footerRow: {
+  pillRow: {
+    marginTop: 2,
     flexDirection: 'row',
-    marginTop: theme.spacing.md,
   },
-  statusPill: {
+  numberChip: {
+    backgroundColor: theme.colors.primarySoft,
+    borderRadius: theme.radii.button,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: 4,
-    borderRadius: theme.radii.pill,
+    paddingVertical: theme.spacing.xs + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 62,
   },
-  statusPillText: {
-    ...theme.typography.bodyBold,
+  numberChipLabel: {
+    ...theme.typography.caption,
     fontSize: 12,
-  },
-  stateCard: {
-    width: '100%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-    marginTop: theme.spacing.md,
-  },
-  emptyTitle: {
-    ...theme.typography.subheading,
-    textAlign: 'center',
-  },
-  errorTitle: {
-    ...theme.typography.subheading,
-    color: theme.colors.status.cancelled.text,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  errorBody: {
-    ...theme.typography.body,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
-  },
-  loadMoreButton: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  loadMoreButtonPressed: {
-    backgroundColor: theme.colors.background,
-  },
-  loadMoreButtonDisabled: {
-    borderColor: theme.colors.border,
-  },
-  loadMoreText: {
-    ...theme.typography.bodyBold,
+    lineHeight: 14,
     color: theme.colors.primary,
   },
-  loadMoreTextDisabled: {
-    color: theme.colors.textMuted,
+  numberChipValue: {
+    ...theme.typography.subtitle,
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.colors.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  loadMoreBtn: {
+    marginTop: theme.spacing.sm,
   },
 });

@@ -1,16 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCreateBusiness } from '@/hooks/useMyBusiness';
 import { useOnline } from '@/hooks/useOnline';
@@ -19,6 +8,19 @@ import { getFriendlyErrorMessage } from '@/lib/errors';
 import { BUSINESS_CATEGORIES, businessFormSchema } from '@/lib/validation';
 import { theme } from '@/lib/theme';
 import type { BusinessCategory } from '@/types/database';
+import {
+  Banner,
+  Button,
+  Card,
+  CategoryTile,
+  Chip,
+  GeoIllustration,
+  IconButton,
+  Input,
+  Screen,
+  ScreenHeader,
+  Stepper,
+} from '@/components/ui';
 
 export default function OnboardingPemilikScreen() {
   const router = useRouter();
@@ -66,261 +68,181 @@ export default function OnboardingPemilikScreen() {
   const isActionDisabled = isSubmitting || !isOnline;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      edges={['top', 'left', 'right', 'bottom']}
+      header={
+        <ScreenHeader
+          title="Daftarkan usaha Anda"
+          subtitle="Lengkapi informasi usaha agar pelanggan dapat mengambil nomor antrean dari rumah."
+          right={
+            <IconButton
+              icon="person-circle-outline"
+              onPress={() => router.push('/(pemilik)/profil')}
+              accessibilityLabel="Buka profil pemilik"
+            />
+          }
+        />
+      }
+      footer={
+        <Button
+          label="Simpan & Buka Dasbor"
+          size="l"
+          iconRight="arrow-forward"
+          onPress={() => {
+            void handleSubmit();
+          }}
+          loading={isSubmitting}
+          disabled={isActionDisabled}
+          accessibilityLabel="Simpan data usaha dan buka dasbor"
+        />
+      }
+    >
       <OfflineBanner />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.card}>
-            <Text style={styles.title}>Daftarkan Usaha Anda</Text>
-            <Text style={styles.subtitle}>
-              Lengkapi informasi usaha agar pelanggan dapat mengambil nomor antrean dari rumah.
-            </Text>
 
-            {errorMessage ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
+      <View style={styles.contentStack}>
+        <View style={styles.illustrationWrap}>
+          <GeoIllustration variant="hero" size={120} />
+        </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nama Usaha</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Contoh: Klinik Pratama Sehat"
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={80}
-                editable={!isSubmitting}
-              />
+        {errorMessage ? (
+          <Banner tone="danger" message={errorMessage} />
+        ) : null}
+
+        {/* Kartu 1: Informasi Usaha */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.identityPreview}>
+            <CategoryTile category={category} size={56} iconSize={28} />
+            <View style={styles.identityTexts}>
+              <Text style={styles.sectionHeading} accessibilityRole="header">
+                Informasi Usaha
+              </Text>
+              <Text style={styles.sectionCaption}>
+                Pilih kategori dan tulis nama usaha yang mudah dikenali pelanggan.
+              </Text>
             </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Kategori Usaha</Text>
-              <View style={styles.chipsWrap}>
-                {BUSINESS_CATEGORIES.map((item) => {
-                  const selected = category === item.value;
-                  return (
-                    <Pressable
-                      key={item.value}
-                      style={[styles.chip, selected && styles.chipActive]}
-                      onPress={() => setCategory(item.value)}
-                      disabled={isSubmitting}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={`Kategori ${item.label}`}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          selected && styles.chipTextActive,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Alamat Usaha</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Contoh: Jl. Melati No. 10, Bandung"
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={200}
-                multiline
-                numberOfLines={2}
-                editable={!isSubmitting}
-              />
-            </View>
-
-            <View style={styles.rowFields}>
-              <View style={[styles.fieldGroup, styles.halfField]}>
-                <Text style={styles.label}>Rata-rata Layanan (Menit)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={avgServiceMinutesText}
-                  onChangeText={(val) =>
-                    setAvgServiceMinutesText(val.replace(/\D/g, ''))
-                  }
-                  placeholder="10"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                  editable={!isSubmitting}
-                />
-                <Text style={styles.helperText}>Rentang 1–240 menit</Text>
-              </View>
-
-              <View style={[styles.fieldGroup, styles.halfField]}>
-                <Text style={styles.label}>Masa Tunggu Panggilan (Menit)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={graceMinutesText}
-                  onChangeText={(val) =>
-                    setGraceMinutesText(val.replace(/\D/g, ''))
-                  }
-                  placeholder="5"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  editable={!isSubmitting}
-                />
-                <Text style={styles.helperText}>Bawaan 5 (1–30 menit)</Text>
-              </View>
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && !isActionDisabled && styles.buttonPressed,
-                isActionDisabled && styles.buttonDisabled,
-              ]}
-              onPress={() => {
-                void handleSubmit();
-              }}
-              disabled={isActionDisabled}
-              accessibilityRole="button"
-              accessibilityLabel="Simpan data usaha dan buka dasbor"
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.buttonText}>Simpan & Buka Dasbor</Text>
-              )}
-            </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          <Input
+            label="Nama Usaha"
+            iconLeft="storefront-outline"
+            value={name}
+            onChangeText={setName}
+            placeholder="Contoh: Klinik Pratama Sehat"
+            maxLength={80}
+            editable={!isSubmitting}
+          />
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Kategori Usaha</Text>
+            <View style={styles.chipsWrap}>
+              {BUSINESS_CATEGORIES.map((item) => {
+                const selected = category === item.value;
+                return (
+                  <Chip
+                    key={item.value}
+                    label={item.label}
+                    category={item.value}
+                    active={selected}
+                    disabled={isSubmitting}
+                    onPress={() => setCategory(item.value)}
+                    accessibilityLabel={`Kategori ${item.label}`}
+                  />
+                );
+              })}
+            </View>
+          </View>
+
+          <Input
+            label="Alamat"
+            iconLeft="location-outline"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Contoh: Jl. Melati No. 10, Bandung"
+            maxLength={200}
+            editable={!isSubmitting}
+          />
+        </Card>
+
+        {/* Kartu 2: Pengaturan Antrean */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeaderBlock}>
+            <Text style={styles.sectionHeading} accessibilityRole="header">
+              Pengaturan Antrean
+            </Text>
+            <Text style={styles.sectionCaption}>
+              Anda dapat mengubah pengaturan ini kapan saja di menu Pengaturan.
+            </Text>
+          </View>
+
+          <Stepper
+            label="Rata-rata layanan"
+            valueText={avgServiceMinutesText}
+            onChangeText={setAvgServiceMinutesText}
+            min={1}
+            max={240}
+            unit="menit"
+            helper="Rentang 1–240 menit"
+            disabled={isSubmitting}
+          />
+
+          <Stepper
+            label="Masa tunggu panggilan"
+            valueText={graceMinutesText}
+            onChangeText={setGraceMinutesText}
+            min={1}
+            max={30}
+            unit="menit"
+            helper="Bawaan 5 (1–30 menit)"
+            disabled={isSubmitting}
+          />
+        </Card>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  contentStack: {
+    gap: theme.spacing.lg,
   },
-  flex: {
-    flex: 1,
+  illustrationWrap: {
+    alignItems: 'center',
+    marginVertical: -theme.spacing.xs,
   },
-  scrollContent: {
-    padding: theme.spacing.lg,
+  sectionCard: {
+    gap: theme.spacing.lg,
   },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.xl,
-  },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.lg,
-  },
-  errorBox: {
-    backgroundColor: theme.colors.status.cancelled.background,
-    borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.status.cancelled.text,
-  },
-  fieldGroup: {
-    marginBottom: theme.spacing.md,
-  },
-  rowFields: {
+  identityPreview: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderSoft,
   },
-  halfField: {
+  identityTexts: {
     flex: 1,
+    gap: 2,
   },
-  label: {
-    ...theme.typography.bodyBold,
-    marginBottom: theme.spacing.xs,
+  cardHeaderBlock: {
+    gap: 4,
   },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    ...theme.typography.body,
+  sectionHeading: {
+    ...theme.typography.subtitle,
   },
-  multilineInput: {
-    minHeight: 72,
-    paddingTop: theme.spacing.sm,
-    textAlignVertical: 'top',
+  sectionCaption: {
+    ...theme.typography.caption,
+  },
+  fieldBlock: {
+    gap: theme.spacing.sm,
+  },
+  fieldLabel: {
+    ...theme.typography.label,
+    color: theme.colors.ink,
   },
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
-  },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  chipText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.textPrimary,
-  },
-  chipTextActive: {
-    color: theme.colors.surface,
-  },
-  helperText: {
-    ...theme.typography.caption,
-    marginTop: theme.spacing.xs,
-  },
-  button: {
-    width: '100%',
-    minHeight: theme.sizes.buttonMinHeight,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
-  },
-  buttonPressed: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  buttonText: {
-    ...theme.typography.bodyBold,
-    color: theme.colors.surface,
   },
 });
